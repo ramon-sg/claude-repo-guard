@@ -6,32 +6,33 @@ Barandas para correr Claude Code sin preguntas de permisos, instaladas **en cada
 
 - El agente trabaja sin preguntar. Lo dudoso no se pregunta: se rechaza y el agente sigue.
 - Puede escribir y borrar (`rm` incluido) solo dentro de su worktree y de los temporales. Fuera de eso, el sistema operativo lo impide.
-- Todo vive en archivos del repo (`.claude/settings.json`, `package.json`, `docs/`). Claude Code los carga solo, en el checkout principal y en cada worktree. No pide `sudo` ni toca otros repos.
-- Cuando quieres correr sin restricciones, hay un alias que las apaga para esa sesión.
-- Junto con la instalación se genera un documento que explica qué se instaló, qué protege, qué no y cómo desactivar cada parte.
+- Todo vive en archivos del repo (`.claude/`, `package.json`, `docs/`). Claude Code los carga solo, en el checkout principal y en cada worktree. No pide `sudo` ni toca otros repos.
+- Cuando quieres correr sin restricciones, `pnpm claude:free` las apaga para esa sesión.
+- La instalación genera un documento que explica qué se instaló, qué protege, qué no y cómo desactivar cada parte.
 
-## Por qué por repo
+## Instalar
 
-Instalar las barandas en los managed settings de la máquina obliga a todos los repos por igual, pide permisos de administrador y es difícil de entender y de revertir. Tenerlas en el repo las hace visibles, revisables en un PR y fáciles de quitar.
+Dentro del repo:
 
-## Qué instala
+```bash
+npx github:ramon-sg/claude-repo-guard install --dry-run   # muestra los cambios
+npx github:ramon-sg/claude-repo-guard install             # los aplica (pregunta antes)
+npx github:ramon-sg/claude-repo-guard doctor              # revisa que todo coincida
+npx github:ramon-sg/claude-repo-guard uninstall           # deja el repo como estaba
+```
 
-| Pieza | Dónde | Qué hace |
-| --- | --- | --- |
-| Sandbox | `.claude/settings.json` | Los comandos del agente corren aislados por el sistema operativo: escriben solo en el worktree, los temporales y las cachés necesarias. No arranca si el sandbox no está disponible |
-| Hooks de git protegidos | `.claude/settings.json` | El agente no puede escribir en `.husky/**`; `.git/hooks` y `.git/config` ya los protege Claude Code |
-| Red | `.claude/settings.json` | Lista corta de dominios permitidos (registros de paquetes, GitHub, localhost) |
-| Contexto para el modo `auto` | `.claude/settings.json` | Le dice al clasificador qué es rutina de desarrollo, para que no frene lo normal |
-| Alias sin restricciones | `package.json` | `pnpm claude:free`: abre Claude sin sandbox y con `--dangerously-skip-permissions`, con una advertencia |
-| Documento | `docs/` | Explica todo lo anterior y cómo desactivarlo o desinstalarlo |
+Commitea los archivos que agrega: así cada worktree y cada persona del equipo los trae.
 
 ## Cómo se usa
 
-```bash
-claude --permission-mode auto                                # trabaja sin preguntar; lo dudoso se rechaza
-claude --permission-mode auto --permission-prompts none      # desatendido: nunca pregunta
-pnpm claude:free                                             # sin restricciones, solo esta sesión
-```
+| Para | Comando | Qué hace |
+| --- | --- | --- |
+| Trabajar sin preguntas | `pnpm claude:auto` | Modo auto: lo dudoso se rechaza y Claude sigue |
+| Dejarlo solo | `pnpm run claude:auto --permission-prompts none` | Igual, pero nunca pregunta |
+| Correr sin restricciones | `pnpm claude:free` | Sin sandbox y con `--dangerously-skip-permissions`, solo esa sesión |
+| Sesión normal | `claude` | Sandbox y reglas activos, con las preguntas de siempre |
+
+Los argumentos extra pasan a Claude: `pnpm run claude:free -p "..."`.
 
 `pnpm claude:free` equivale a:
 
@@ -39,14 +40,46 @@ pnpm claude:free                                             # sin restricciones
 claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 ```
 
-`--settings` tiene más prioridad que los settings del repo, así que apaga el sandbox solo para esa sesión; `--dangerously-skip-permissions` quita las preguntas. Si el agente lo ejecuta desde una sesión con sandbox, el proceso hijo hereda el sandbox del sistema operativo.
+`--settings` tiene más prioridad que los settings del repo, así que apaga el sandbox solo para esa sesión. Si el agente lo ejecuta desde una sesión con sandbox, el proceso hijo hereda el sandbox del sistema operativo: no sirve para escaparse.
+
+## Qué instala
+
+| Archivo | Qué tiene |
+| --- | --- |
+| `.claude/settings.json` | Sandbox activo (y la sesión no arranca sin él), sin reintentos fuera del sandbox, dominios permitidos y `Edit(/.husky/**)` en `deny`. Se fusiona con lo que el repo ya tenía |
+| `.claude/repo-guard.auto-mode.json` | Contexto para el clasificador del modo auto. Claude no lee `autoMode` desde los settings del repo, por eso va aparte y lo carga `claude:auto` con `--settings` |
+| `package.json` | Los scripts `claude:auto` y `claude:free` |
+| `docs/development/claude-repo-guard.md` | El documento generado |
+| `.claude/repo-guard.config.json` | Las opciones del repo |
+| `.claude/repo-guard.manifest.json` | Lo que agregó la instalación, para deshacerlo exacto |
+
+`uninstall` quita solo lo que agregó `install`: respeta lo que hayas cambiado o agregado después a mano, y si el archivo vuelve a su contenido original, restaura también su formato.
+
+## Opciones
+
+En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `install`.
+
+| Opción | Default | Para qué |
+| --- | --- | --- |
+| `allowedDomains` | `[]` | Dominios extra, además de npm y GitHub |
+| `allowWrite` | `[]` | Rutas extra donde los comandos pueden escribir (`~/` es tu home) |
+| `protectedPaths` | `["/.husky/**"]` | Rutas que Claude no puede editar (`/` es la raíz del repo) |
+| `environment` | `[]` | Más contexto para el modo auto, en prosa |
+| `integrationBranch` | `""` | Rama a la que mergear con merge commit es parte del flujo (por ejemplo `staging`) |
+| `localBinding` | `true` | En macOS, levantar servidores y conectarse a localhost |
+| `weakerNetworkIsolation` | `false` | En macOS, deja que `gh` y otras herramientas en Go verifiquen TLS dentro del sandbox. Debilita el sandbox |
+| `docPath` | `docs/development/claude-repo-guard.md` | Dónde va el documento |
 
 ## Qué no cubre
 
-- Credenciales de terceros (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code.
-- Sesiones abiertas con `--dangerously-skip-permissions`: en ese modo la lista de dominios no frena nada.
-- Código del agente que se ejecuta fuera del sandbox (CI, scripts que corres tú).
+- **Credenciales de terceros** (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code. El sandbox deja leer tu home.
+- **`--dangerously-skip-permissions`:** en ese modo la lista de dominios no frena nada.
+- **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
+- **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
+- **El socket de Docker:** si el agente lo usa, un contenedor puede montar lo que Docker comparta y saltarse el sandbox.
+- **Código del agente que corre fuera del sandbox** (CI, scripts que corres tú).
 
-## Estado
+## Requisitos
 
-En diseño. El spec está en la issue #1.
+- Claude Code con sandbox: macOS, o Linux/WSL2 con `bubblewrap` y `socat`. En Windows nativo el sandbox no existe y la sesión no arranca.
+- Node 20 o superior para el instalador.
