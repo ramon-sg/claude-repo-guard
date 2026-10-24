@@ -47,7 +47,7 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 | Archivo | Qué tiene |
 | --- | --- |
 | `.claude/settings.json` | Sandbox activo, sin reintentos fuera del sandbox, dominios permitidos y `Edit(/.husky/**)` en `deny`. Se fusiona con lo que el repo ya tenía |
-| `.claude/repo-guard.auto-mode.json` | Contexto para el clasificador del modo auto. Claude no lee `autoMode` desde los settings del repo, por eso va aparte y lo carga `claude:auto` con `--settings` |
+| `.claude/repo-guard.auto-mode.json` | Exige el sandbox (`failIfUnavailable`) y da contexto al clasificador del modo auto. Claude no lee `autoMode` desde los settings del repo, por eso va aparte y lo carga `claude:auto` con `--settings` |
 | `package.json` | Los scripts `claude:auto` y `claude:free` |
 | `docs/development/claude-repo-guard.md` | El documento generado |
 | `.claude/repo-guard.config.json` | Las opciones del repo |
@@ -83,7 +83,7 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 
 El repo funciona igual en una sesión local y en una de claude.ai/code. Probado en la nube:
 
-- **No hay sandbox de Bash:** la máquina no trae `bwrap` ni `socat`. Por eso la herramienta no usa `sandbox.failIfUnavailable`: con esa opción Claude se cierra al arrancar. La máquina ya está aislada y no tiene tus archivos ni tus credenciales.
+- **No hay sandbox de Bash:** la máquina no trae `bwrap` ni `socat`. Por eso `sandbox.failIfUnavailable` no va en `.claude/settings.json` (Claude se cerraría al arrancar) sino en `.claude/repo-guard.auto-mode.json`, que solo carga `claude:auto` desde la terminal: el trabajo desatendido en local nunca corre sin sandbox. La máquina ya está aislada y no tiene tus archivos ni tus credenciales.
 - **Las reglas de permisos sí se aplican:** `.husky` queda bloqueado desde Bash y desde Edit.
 - **La red la filtra el entorno de la nube**, no `network.allowedDomains`.
 - **`claude:auto` y `claude:free` son solo para la terminal:** en la nube el modo se elige en el menú.
