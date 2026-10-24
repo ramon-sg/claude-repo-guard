@@ -55,16 +55,13 @@ export const settingsFragment = (config) => {
 
 /**
  * @param {import('./config.mjs').Config} config
- * @returns {Record<string, unknown>} el contenido de `.claude/repo-guard.auto-mode.json`: exige el sandbox y da contexto al modo auto.
+ * @returns {Record<string, unknown>} el contenido de `.claude/repo-guard.auto-mode.json`.
  */
 export const autoModeSettings = (config) => {
   const allow = config.integrationBranch
     ? [`Merging pull requests into the ${config.integrationBranch} branch with a merge commit is part of the normal workflow.`]
     : [];
   return {
-    // Este archivo solo se carga desde la terminal (`claude:auto`), nunca en la
-    // nube: ahí sí se puede exigir el sandbox sin romper las sesiones remotas.
-    sandbox: { failIfUnavailable: true },
     autoMode: {
       environment: ['$defaults', ...BASE_ENVIRONMENT, ...config.environment],
       ...(allow.length > 0 ? { allow: ['$defaults', ...allow] } : {}),

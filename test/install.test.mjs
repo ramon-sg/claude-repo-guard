@@ -68,9 +68,7 @@ test('install agrega los scripts, el contexto del modo auto y el documento', asy
   assert.equal(scripts.test, 'node --test');
   assert.equal(scripts['claude:auto'], 'claude --settings .claude/repo-guard.auto-mode.json --permission-mode auto');
   assert.match(scripts['claude:free'], /--settings '\{"sandbox":\{"enabled":false\}\}' --dangerously-skip-permissions$/);
-  const autoMode = json('.claude/repo-guard.auto-mode.json');
-  assert.equal(autoMode.autoMode.environment[0], '$defaults');
-  assert.equal(autoMode.sandbox.failIfUnavailable, true, 'claude:auto, que solo corre en la terminal, exige el sandbox');
+  assert.equal(json('.claude/repo-guard.auto-mode.json').autoMode.environment[0], '$defaults');
   assert.match(read('docs/development/claude-repo-guard.md'), /# Barandas de Claude Code en este repo/);
   assert.ok(exists('.claude/repo-guard.config.json'));
 });
