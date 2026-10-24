@@ -23,6 +23,7 @@ Opciones de install y uninstall:
   --yes       No pregunta antes de escribir.
 
 Opciones de doctor:
+  --repo      Solo el repo, sin revisar si la máquina tiene sandbox.
   --json      Salida en JSON.
 
 La configuración del repo vive en .claude/repo-guard.config.json.
@@ -54,7 +55,7 @@ export const main = async (argv, cwd = process.cwd()) => {
         return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), verb: 'Quito' });
       }
       case 'doctor':
-        return doctor({ root: repoRoot(cwd), version: version(), json: has('--json') });
+        return doctor({ root: repoRoot(cwd), version: version(), json: has('--json'), machine: !has('--repo') });
       case '--version':
       case '-v':
         process.stdout.write(`${version()}\n`);

@@ -84,17 +84,17 @@ test('install dos veces no cambia nada la segunda', async () => {
 
 test('doctor da verde tras install y rojo si falta una regla', async () => {
   await run('install', '--yes');
-  assert.equal(await run('doctor'), 0);
+  assert.equal(await run('doctor', '--repo'), 0);
   const settings = json('.claude/settings.json');
   delete settings.sandbox.failIfUnavailable;
   fs.writeFileSync(path.join(root, '.claude', 'settings.json'), JSON.stringify(settings));
   output = '';
-  assert.equal(await run('doctor'), 1);
+  assert.equal(await run('doctor', '--repo'), 1);
   assert.match(output, /sandbox\.failIfUnavailable/);
 });
 
 test('doctor avisa si no está instalado', async () => {
-  assert.equal(await run('doctor'), 1);
+  assert.equal(await run('doctor', '--repo'), 1);
   assert.match(output, /no está instalado/);
 });
 
@@ -186,6 +186,36 @@ test('docPath fuera del repo se rechaza', async () => {
     assert.equal(await run('install', '--yes'), 1);
     assert.match(output, /ruta relativa dentro del repo/);
   }
+});
+
+test('un manifiesto alterado no puede borrar archivos fuera de lo generado', async () => {
+  const outside = path.join(path.dirname(root), `${path.basename(root)}-victima.md`);
+  fs.writeFileSync(outside, 'no me borres');
+  fs.mkdirSync(path.join(root, 'src'));
+  fs.writeFileSync(path.join(root, 'src', 'index.js'), 'código');
+  await run('install', '--yes');
+  const manifestFile = path.join(root, '.claude', 'repo-guard.manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+
+  for (const evil of [`../${path.basename(outside)}`, outside, 'src/index.js']) {
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, files: [evil] }));
+    output = '';
+    assert.equal(await run('uninstall', '--yes'), 1, `rechaza ${evil}`);
+  }
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'no me borres');
+  assert.ok(exists('src/index.js'));
+  fs.rmSync(outside);
+});
+
+test('no escribe a través de un enlace simbólico', async () => {
+  const outside = path.join(path.dirname(root), `${path.basename(root)}-destino.md`);
+  fs.writeFileSync(outside, 'original');
+  fs.mkdirSync(path.join(root, 'docs', 'development'), { recursive: true });
+  fs.symlinkSync(outside, path.join(root, 'docs', 'development', 'claude-repo-guard.md'));
+  assert.equal(await run('install', '--yes'), 1);
+  assert.match(output, /enlace simbólico/);
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'original');
+  fs.rmSync(outside);
 });
 
 test('una opción desconocida en la configuración falla con un mensaje claro', async () => {

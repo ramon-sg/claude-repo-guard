@@ -47,5 +47,8 @@ export const readConfig = (file) => {
     const expected = kind(DEFAULT_CONFIG[key]);
     if (kind(value) !== expected) throw new Error(`${file}: "${key}" debe ser ${KIND_NAMES[expected]}.`);
   }
+  if (json.data.docPath !== undefined && !json.data.docPath.endsWith('.md')) {
+    throw new Error(`${file}: "docPath" tiene que terminar en .md.`);
+  }
   return { config: { ...DEFAULT_CONFIG, ...json.data }, exists: json.exists };
 };

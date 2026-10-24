@@ -4,8 +4,8 @@ import { DEFAULT_CONFIG, readConfig } from './config.mjs';
 import { renderDoc } from './doc.mjs';
 import { formatJson, readJson, readText } from './files.mjs';
 import { apply, revert } from './merge.mjs';
-import { autoModeSettings, scripts, settingsFragment } from './profile.mjs';
-import { repoPaths } from './repo.mjs';
+import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
+import { repoPaths, safeRepoFile } from './repo.mjs';
 
 /**
  * Un cambio a un archivo. `after: null` significa borrarlo.
@@ -25,6 +25,26 @@ import { repoPaths } from './repo.mjs';
  */
 
 const CONFIG_FILE = path.join('.claude', 'repo-guard.config.json');
+
+/**
+ * Los archivos que el manifiesto puede pedir borrar: solo los que genera la
+ * herramienta (el contexto del modo auto y un documento .md), siempre dentro
+ * del repo. El manifiesto viaja en el repo, así que no se le cree a ciegas.
+ *
+ * @param {string} root
+ * @param {unknown} files
+ * @returns {string[]} rutas absolutas validadas.
+ * @throws {Error} si alguna entrada no es un archivo generado por la herramienta.
+ */
+const generatedFiles = (root, files) => {
+  if (!Array.isArray(files)) throw new Error('El manifiesto está dañado: "files" no es una lista.');
+  return files.map((file) => {
+    if (file !== AUTO_MODE_FILE && !(typeof file === 'string' && file.endsWith('.md'))) {
+      throw new Error(`El manifiesto pide borrar ${JSON.stringify(file)}, que no es un archivo generado por claude-repo-guard.`);
+    }
+    return safeRepoFile(root, file, 'Un archivo del manifiesto');
+  });
+};
 
 /**
  * @param {string} root
@@ -133,9 +153,10 @@ export const planInstall = (root, version) => {
   changes.push({ file: paths.autoMode, before: readText(paths.autoMode), after: `${JSON.stringify(autoModeSettings(config), null, 2)}\n` });
   changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, hasPackageJson }) });
 
-  const files = [path.relative(root, paths.autoMode), config.docPath];
-  for (const old of previous?.files ?? []) {
-    if (!files.includes(old)) changes.push({ file: path.join(root, old), before: readText(path.join(root, old)), after: null });
+  const files = [AUTO_MODE_FILE, config.docPath];
+  const current = [paths.autoMode, paths.doc];
+  for (const old of previous ? generatedFiles(root, previous.files) : []) {
+    if (!current.includes(old)) changes.push({ file: old, before: readText(old), after: null });
   }
 
   /** @type {Manifest} */
@@ -187,7 +208,7 @@ export const planUninstall = (root) => {
     changes.push({ file: paths.packageJson, before, after: restoreFormat(pkg, previous.originals?.packageJson) });
   }
 
-  for (const file of previous.files) changes.push({ file: path.join(root, file), before: readText(path.join(root, file)), after: null });
+  for (const file of generatedFiles(root, previous.files)) changes.push({ file, before: readText(file), after: null });
   if (previous.createdConfig) changes.push({ file: paths.config, before: readText(paths.config), after: null });
   changes.push({ file: paths.manifest, before: readText(paths.manifest), after: null });
 

@@ -30,9 +30,10 @@ const available = (command) => {
  *
  * @param {string} root
  * @param {string} version
+ * @param {{ machine: boolean }} options `machine: false` revisa solo el repo.
  * @returns {Check[]}
  */
-export const runChecks = (root, version) => {
+export const runChecks = (root, version, { machine }) => {
   const { config } = readConfig(path.join(root, '.claude', 'repo-guard.config.json'));
   const paths = repoPaths(root, config);
   /** @type {Check[]} */
@@ -68,6 +69,7 @@ export const runChecks = (root, version) => {
   const docOk = readText(paths.doc) === renderDoc(config, { version, hasPackageJson });
   checks.push({ ok: docOk, name: 'Documento', detail: docOk ? config.docPath : `${config.docPath} no coincide con la configuración: corre install` });
 
+  if (!machine) return checks;
   if (process.platform === 'linux') {
     const tools = ['bwrap', 'socat'].filter((tool) => !available(tool));
     checks.push({
@@ -83,11 +85,11 @@ export const runChecks = (root, version) => {
 };
 
 /**
- * @param {{ root: string, version: string, json: boolean }} options
+ * @param {{ root: string, version: string, json: boolean, machine: boolean }} options
  * @returns {number} código de salida: 1 si algo falla.
  */
-export const doctor = ({ root, version, json }) => {
-  const checks = runChecks(root, version);
+export const doctor = ({ root, version, json, machine }) => {
+  const checks = runChecks(root, version, { machine });
   if (json) {
     process.stdout.write(`${JSON.stringify(checks, null, 2)}\n`);
   } else {
