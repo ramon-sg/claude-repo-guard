@@ -1,0 +1,26 @@
+# Corre los tests en Linux y en macOS, y prueba el CLI sobre un repo vacío.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm test
+      - name: install, doctor y uninstall sobre un repo vacío
+        run: |
+          repo="$(mktemp -d)"
+          git -C "$repo" init -q
+          cd "$repo"
+          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" install --yes
+          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" uninstall --yes
+          test "$(ls -A "$repo")" = ".git"
