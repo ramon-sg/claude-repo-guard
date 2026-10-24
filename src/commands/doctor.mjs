@@ -5,7 +5,7 @@ import { readConfig } from '../config.mjs';
 import { renderDoc } from '../doc.mjs';
 import { readJson, readText } from '../files.mjs';
 import { missing } from '../merge.mjs';
-import { autoModeSettings, scripts, settingsFragment } from '../profile.mjs';
+import { FORBIDDEN_SANDBOX_KEYS, autoModeSettings, scripts, settingsFragment } from '../profile.mjs';
 import { repoPaths } from '../repo.mjs';
 
 /**
@@ -49,11 +49,22 @@ export const runChecks = (root, version, { machine }) => {
     detail: manifest.data.version === version ? `v${version}` : `instalado con v${manifest.data.version}; esta es v${version}: corre install`,
   });
 
-  const gaps = missing(readJson(paths.settings).data, settingsFragment(config));
+  const settings = readJson(paths.settings).data;
+  const gaps = missing(settings, settingsFragment(config));
   checks.push({
     ok: gaps.length === 0,
     name: '.claude/settings.json',
     detail: gaps.length === 0 ? 'sandbox y reglas presentes' : `falta o cambió: ${gaps.join('; ')}`,
+  });
+
+  const forbidden = FORBIDDEN_SANDBOX_KEYS.filter((key) => settings.sandbox?.[key] !== undefined && settings.sandbox[key] !== false);
+  checks.push({
+    ok: forbidden.length === 0,
+    name: 'Sesiones en la nube',
+    detail:
+      forbidden.length === 0
+        ? 'nada impide abrir el repo en claude.ai/code'
+        : `quita ${forbidden.map((key) => `sandbox.${key}`).join(', ')} de .claude/settings.json: en la nube no hay sandbox y Claude se cierra al arrancar`,
   });
 
   const autoModeOk = readText(paths.autoMode) === `${JSON.stringify(autoModeSettings(config), null, 2)}\n`;
@@ -70,15 +81,17 @@ export const runChecks = (root, version, { machine }) => {
   checks.push({ ok: docOk, name: 'Documento', detail: docOk ? config.docPath : `${config.docPath} no coincide con la configuración: corre install` });
 
   if (!machine) return checks;
-  if (process.platform === 'linux') {
+  if (process.env.CLAUDE_CODE_REMOTE === 'true') {
+    checks.push({ ok: true, name: 'Sandbox', detail: 'sesión en la nube: no hay sandbox de Bash, la máquina ya está aislada' });
+  } else if (process.platform === 'linux') {
     const tools = ['bwrap', 'socat'].filter((tool) => !available(tool));
     checks.push({
       ok: tools.length === 0,
       name: 'Sandbox en Linux',
-      detail: tools.length === 0 ? 'bubblewrap y socat instalados' : `falta ${tools.join(' y ')}: sin eso la sesión no arranca`,
+      detail: tools.length === 0 ? 'bubblewrap y socat instalados' : `falta ${tools.join(' y ')}: los comandos de Claude corren sin sandbox`,
     });
   } else if (process.platform !== 'darwin') {
-    checks.push({ ok: false, name: 'Sandbox', detail: `el sandbox de Claude Code no existe en ${process.platform}: la sesión no arranca` });
+    checks.push({ ok: false, name: 'Sandbox', detail: `el sandbox de Claude Code no existe en ${process.platform}: los comandos corren sin sandbox` });
   }
 
   return checks;

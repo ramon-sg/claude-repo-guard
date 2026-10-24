@@ -46,7 +46,7 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 
 | Archivo | Qué tiene |
 | --- | --- |
-| `.claude/settings.json` | Sandbox activo (y la sesión no arranca sin él), sin reintentos fuera del sandbox, dominios permitidos y `Edit(/.husky/**)` en `deny`. Se fusiona con lo que el repo ya tenía |
+| `.claude/settings.json` | Sandbox activo, sin reintentos fuera del sandbox, dominios permitidos y `Edit(/.husky/**)` en `deny`. Se fusiona con lo que el repo ya tenía |
 | `.claude/repo-guard.auto-mode.json` | Contexto para el clasificador del modo auto. Claude no lee `autoMode` desde los settings del repo, por eso va aparte y lo carga `claude:auto` con `--settings` |
 | `package.json` | Los scripts `claude:auto` y `claude:free` |
 | `docs/development/claude-repo-guard.md` | El documento generado |
@@ -79,7 +79,18 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 - **El socket de Docker:** si el agente lo usa, un contenedor puede montar lo que Docker comparta y saltarse el sandbox.
 - **Código del agente que corre fuera del sandbox** (CI, scripts que corres tú).
 
+## En la nube
+
+El repo funciona igual en una sesión local y en una de claude.ai/code. Probado en la nube:
+
+- **No hay sandbox de Bash:** la máquina no trae `bwrap` ni `socat`. Por eso la herramienta no usa `sandbox.failIfUnavailable`: con esa opción Claude se cierra al arrancar. La máquina ya está aislada y no tiene tus archivos ni tus credenciales.
+- **Las reglas de permisos sí se aplican:** `.husky` queda bloqueado desde Bash y desde Edit.
+- **La red la filtra el entorno de la nube**, no `network.allowedDomains`.
+- **`claude:auto` y `claude:free` son solo para la terminal:** en la nube el modo se elige en el menú.
+
+`doctor` marca un error si `failIfUnavailable` aparece en `.claude/settings.json`.
+
 ## Requisitos
 
-- Claude Code con sandbox: macOS, o Linux/WSL2 con `bubblewrap` y `socat`. En Windows nativo el sandbox no existe y la sesión no arranca.
+- Claude Code con sandbox: macOS, o Linux/WSL2 con `bubblewrap` y `socat`. Sin eso, los comandos corren sin sandbox (`doctor` lo avisa). En la nube no hace falta.
 - Node 20 o superior para el instalador.

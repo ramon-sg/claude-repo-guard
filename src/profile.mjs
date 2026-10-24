@@ -25,13 +25,20 @@ export const BASE_ENVIRONMENT = [
 export const AUTO_MODE_FILE = '.claude/repo-guard.auto-mode.json';
 
 /**
+ * Claves que el repo no debe tener en `.claude/settings.json`. Las sesiones en
+ * la nube de Claude Code no tienen sandbox de Bash: con `failIfUnavailable`,
+ * Claude se cierra al arrancar ahí. El mismo repo tiene que abrir en local y en
+ * la nube.
+ */
+export const FORBIDDEN_SANDBOX_KEYS = ['failIfUnavailable'];
+
+/**
  * @param {import('./config.mjs').Config} config
  * @returns {Record<string, unknown>} lo que se fusiona en `.claude/settings.json`.
  */
 export const settingsFragment = (config) => {
   const sandbox = {
     enabled: true,
-    failIfUnavailable: true,
     allowUnsandboxedCommands: false,
     ...(config.weakerNetworkIsolation ? { enableWeakerNetworkIsolation: true } : {}),
     ...(config.allowWrite.length > 0 ? { filesystem: { allowWrite: config.allowWrite } } : {}),

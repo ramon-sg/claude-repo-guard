@@ -56,7 +56,7 @@ test('install fusiona sin pisar los hooks ni las reglas del repo', async () => {
   assert.equal(settings.hooks.SessionStart[0].hooks[0].command, 'echo hola');
   assert.deepEqual(settings.permissions.deny, ['Bash(rm -rf /)', 'Edit(/.husky/**)']);
   assert.equal(settings.sandbox.enabled, true);
-  assert.equal(settings.sandbox.failIfUnavailable, true);
+  assert.equal(settings.sandbox.failIfUnavailable, undefined, 'con failIfUnavailable la sesión en la nube no arranca');
   assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
   assert.ok(settings.sandbox.network.allowedDomains.includes('registry.npmjs.org'));
   assert.equal(settings.autoMode, undefined, 'autoMode no va en los settings del repo: Claude no lo lee de ahí');
@@ -86,11 +86,37 @@ test('doctor da verde tras install y rojo si falta una regla', async () => {
   await run('install', '--yes');
   assert.equal(await run('doctor', '--repo'), 0);
   const settings = json('.claude/settings.json');
-  delete settings.sandbox.failIfUnavailable;
+  delete settings.sandbox.allowUnsandboxedCommands;
   fs.writeFileSync(path.join(root, '.claude', 'settings.json'), JSON.stringify(settings));
   output = '';
   assert.equal(await run('doctor', '--repo'), 1);
-  assert.match(output, /sandbox\.failIfUnavailable/);
+  assert.match(output, /sandbox\.allowUnsandboxedCommands/);
+});
+
+test('doctor marca failIfUnavailable porque rompe las sesiones en la nube', async () => {
+  await run('install', '--yes');
+  const settings = json('.claude/settings.json');
+  settings.sandbox.failIfUnavailable = true;
+  fs.writeFileSync(path.join(root, '.claude', 'settings.json'), JSON.stringify(settings));
+  assert.equal(await run('doctor', '--repo'), 1);
+  assert.match(output, /quita sandbox\.failIfUnavailable/);
+});
+
+test('reinstalar sobre la v0.1.0 quita el failIfUnavailable que ella puso', async () => {
+  await run('install', '--yes');
+  const settingsFile = path.join(root, '.claude', 'settings.json');
+  const manifestFile = path.join(root, '.claude', 'repo-guard.manifest.json');
+  const settings = json('.claude/settings.json');
+  settings.sandbox.failIfUnavailable = true;
+  fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  manifest.settingsOperations.push({ op: 'set', path: ['sandbox', 'failIfUnavailable'], value: true, had: false });
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+
+  await run('install', '--yes');
+  assert.equal(json('.claude/settings.json').sandbox.failIfUnavailable, undefined);
+  output = '';
+  assert.equal(await run('doctor', '--repo'), 0);
 });
 
 test('doctor avisa si no está instalado', async () => {
