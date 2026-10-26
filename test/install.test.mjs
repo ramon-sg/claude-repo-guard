@@ -143,6 +143,30 @@ test('un cambio en la configuración se aplica y lo quitado se quita', async () 
   assert.ok(!json('.claude/settings.json').sandbox.network.allowedDomains.includes('pypi.org'));
 });
 
+test('allowWrite y allowUnixSockets llegan al sandbox y al documento', async () => {
+  fs.writeFileSync(
+    path.join(root, '.claude', 'repo-guard.config.json'),
+    JSON.stringify({ allowWrite: ['~/.cleanqueen'], allowUnixSockets: ['/var/run/docker.sock'] }),
+  );
+  await run('install', '--yes');
+  const { sandbox } = json('.claude/settings.json');
+  assert.deepEqual(sandbox.filesystem.allowWrite, ['~/.cleanqueen']);
+  assert.deepEqual(sandbox.network.allowUnixSockets, ['/var/run/docker.sock']);
+  const doc = read('docs/development/claude-repo-guard.md');
+  assert.match(doc, /El socket de Docker está abierto/);
+  assert.match(doc, /`~\/.cleanqueen`/);
+  assert.equal(await run('doctor', '--repo'), 0);
+
+  await run('uninstall', '--yes');
+  assert.equal(read('.claude/settings.json'), ORIGINAL_SETTINGS);
+});
+
+test('sin allowUnixSockets no se abre ningún socket y el documento lo dice', async () => {
+  await run('install', '--yes');
+  assert.equal(json('.claude/settings.json').sandbox.network.allowUnixSockets, undefined);
+  assert.match(read('docs/development/claude-repo-guard.md'), /Docker queda bloqueado/);
+});
+
 test('uninstall deja el repo byte a byte como estaba', async () => {
   await run('install', '--yes');
   assert.equal(await run('uninstall', '--yes'), 0);
