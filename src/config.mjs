@@ -8,6 +8,7 @@ import { readJson } from './files.mjs';
  * @typedef {{
  *   allowedDomains: string[],
  *   allowWrite: string[],
+ *   allowUnixSockets: string[],
  *   protectedPaths: string[],
  *   environment: string[],
  *   integrationBranch: string,
@@ -21,6 +22,7 @@ import { readJson } from './files.mjs';
 export const DEFAULT_CONFIG = {
   allowedDomains: [],
   allowWrite: [],
+  allowUnixSockets: [],
   protectedPaths: ['/.husky/**'],
   environment: [],
   integrationBranch: '',

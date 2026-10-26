@@ -62,7 +62,8 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 | Opción | Default | Para qué |
 | --- | --- | --- |
 | `allowedDomains` | `[]` | Dominios extra, además de npm y GitHub |
-| `allowWrite` | `[]` | Rutas extra donde los comandos pueden escribir (`~/` es tu home) |
+| `allowWrite` | `[]` | Rutas extra donde los comandos pueden escribir (`~/` es tu home). Ver [Tests que salen del worktree](#tests-que-salen-del-worktree) |
+| `allowUnixSockets` | `[]` | Sockets locales que los comandos pueden usar, como el de Docker. Abre un hueco en el sandbox: ver [Docker](#docker) |
 | `protectedPaths` | `["/.husky/**"]` | Rutas que Claude no puede editar (`/` es la raíz del repo) |
 | `environment` | `[]` | Más contexto para el modo auto, en prosa |
 | `integrationBranch` | `""` | Rama a la que mergear con merge commit es parte del flujo (por ejemplo `staging`) |
@@ -70,13 +71,89 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 | `weakerNetworkIsolation` | `false` | En macOS, deja que `gh` y otras herramientas en Go verifiquen TLS dentro del sandbox. Debilita el sandbox |
 | `docPath` | `docs/development/claude-repo-guard.md` | Dónde va el documento |
 
+## Tests que salen del worktree
+
+El sandbox deja escribir solo en el worktree y en los temporales, y no deja abrir sockets locales. Algunos tests necesitan más: un registro compartido entre worktrees, una caché en tu home o Docker. Cuando eso pasa, el comando falla con un error como este:
+
+```
+touch: /Users/tu-usuario/.mi-app/registro.json: Operation not permitted
+permission denied while trying to connect to the docker API at unix:///.../docker.sock
+```
+
+Para habilitarlo:
+
+1. **Encuentra la ruta exacta** en el error. Si no aparece, busca en los scripts del repo qué escriben en `$HOME`:
+
+   ```bash
+   grep -rnE '\$\{?HOME\}?|~/|os\.homedir' scripts infra package.json
+   ```
+
+2. **Agrégala a `.claude/repo-guard.config.json`.** Usa la carpeta, no el archivo: muchos scripts escriben primero un temporal al lado (`registro.json.tmp`) y luego lo renombran.
+
+   ```json
+   { "allowWrite": ["~/.mi-app", "~/.cache/mi-app"] }
+   ```
+
+3. **Aplica y revisa:**
+
+   ```bash
+   npx github:ramon-sg/claude-repo-guard install
+   npx github:ramon-sg/claude-repo-guard doctor
+   ```
+
+4. **Abre una sesión nueva de Claude.** El sandbox se arma al iniciar la sesión, así que una sesión abierta sigue con la configuración vieja.
+
+5. **Commitea** `.claude/settings.json`, la configuración y el documento, para que cada worktree y cada persona lo traigan.
+
+Abre solo lo que los tests usan de verdad. Cada ruta que agregas queda al alcance del agente, también para borrarla.
+
+### Docker
+
+Para que el agente corra tests que levantan contenedores (`docker compose`, testcontainers), agrega el socket de Docker en `allowUnixSockets`. La ruta depende de cómo tengas Docker instalado; puedes listar varias y sirven en todas las máquinas del equipo:
+
+```json
+{
+  "allowUnixSockets": [
+    "/var/run/docker.sock",
+    "~/.orbstack/run/docker.sock",
+    "~/.docker/run/docker.sock"
+  ]
+}
+```
+
+| Docker | Socket |
+| --- | --- |
+| OrbStack | `~/.orbstack/run/docker.sock` |
+| Docker Desktop (macOS) | `~/.docker/run/docker.sock` |
+| Enlace del sistema | `/var/run/docker.sock` |
+| Colima | `~/.colima/default/docker.sock` |
+
+Para ver cuál usas: `docker context ls` (la columna `DOCKER ENDPOINT` de la fila con `*`).
+
+**Lo que cuesta:** con el socket de Docker abierto, el sandbox se puede saltar. Un contenedor puede montar cualquier carpeta que Docker comparta, tu home incluido, y escribir ahí. Las barandas siguen frenando accidentes (un `rm` fuera de lugar, una escritura en tu home desde un comando), pero no a un agente manipulado por un texto malicioso. Si eso te preocupa más que correr los tests sin ti, no abras el socket y corre esos tests con `pnpm claude:free` o fuera de Claude.
+
+### Ejemplo: Cleanqueen
+
+Los tests de integración y el E2E de Cleanqueen usan un registro de puertos compartido entre worktrees, una caché de la base y Docker:
+
+```json
+{
+  "allowWrite": ["~/.cleanqueen", "~/.cache/cleanqueen"],
+  "allowUnixSockets": [
+    "/var/run/docker.sock",
+    "~/.orbstack/run/docker.sock",
+    "~/.docker/run/docker.sock"
+  ]
+}
+```
+
 ## Qué no cubre
 
 - **Credenciales de terceros** (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code. El sandbox deja leer tu home.
 - **`--dangerously-skip-permissions`:** en ese modo la lista de dominios no frena nada.
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
-- **El socket de Docker:** si el agente lo usa, un contenedor puede montar lo que Docker comparta y saltarse el sandbox.
+- **El socket de Docker, si lo abres:** un contenedor puede montar lo que Docker comparta y saltarse el sandbox. Ver [Docker](#docker).
 - **Código del agente que corre fuera del sandbox** (CI, scripts que corres tú).
 
 ## En la nube
@@ -86,6 +163,7 @@ El repo funciona igual en una sesión local y en una de claude.ai/code. Probado 
 - **No hay sandbox de Bash:** la máquina no trae `bwrap` ni `socat`. Por eso la herramienta no usa `sandbox.failIfUnavailable`: con esa opción Claude se cierra al arrancar. La máquina ya está aislada y no tiene tus archivos ni tus credenciales.
 - **Las reglas de permisos sí se aplican:** `.husky` queda bloqueado desde Bash y desde Edit.
 - **La red la filtra el entorno de la nube**, no `network.allowedDomains`.
+- **`allowWrite` y `allowUnixSockets` no cambian nada:** sin sandbox, todo se puede escribir; y la máquina de la nube no tiene tu Docker.
 - **`claude:auto` y `claude:free` son solo para la terminal:** en la nube el modo se elige en el menú.
 
 `doctor` marca un error si `failIfUnavailable` aparece en `.claude/settings.json`.

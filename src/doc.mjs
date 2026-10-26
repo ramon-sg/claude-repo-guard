@@ -71,6 +71,12 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     ...(config.localBinding
       ? [`| ${code('network.allowLocalBinding')} | En macOS deja levantar servidores y conectarse a localhost (bases de dev, servidores de tests) | Expone todos los servicios de localhost, no solo los del repo. En Linux no tiene efecto: cada comando tiene su propio loopback |`]
       : []),
+    ...(config.allowWrite.length > 0
+      ? [`| ${code('filesystem.allowWrite')}: ${config.allowWrite.map(code).join(', ')} | Los comandos pueden escribir ahí además del worktree (registros o cachés compartidos entre worktrees) | Lo que haya en esas rutas queda a su alcance, también para borrarlo |`]
+      : []),
+    ...(config.allowUnixSockets.length > 0
+      ? [`| ${code('network.allowUnixSockets')}: ${config.allowUnixSockets.map(code).join(', ')} | Deja usar esos sockets locales; con el de Docker, los tests pueden levantar sus contenedores | Con el socket de Docker el sandbox se puede saltar: un contenedor puede montar cualquier carpeta que Docker comparta (tu home incluido) y escribir ahí. Protege contra accidentes, no contra un agente manipulado |`]
+      : []),
     ...(config.weakerNetworkIsolation
       ? [`| ${code('enableWeakerNetworkIsolation')} | Deja que herramientas en Go (${code('gh')}, ${code('gcloud')}) verifiquen TLS dentro del sandbox en macOS | Debilita el sandbox: abre una posible vía de salida a través del servicio de confianza del sistema |`]
       : []),
@@ -103,7 +109,9 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     `- ${code('pnpm install')} no funciona dentro del sandbox: pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,
     '- El sandbox no cubre las credenciales que se pueden leer en tu home: limítalas con los permisos de cada aplicación.',
-    '- No dejes que el agente use el socket de Docker: un contenedor puede montar cualquier carpeta que Docker comparta y saltarse el sandbox.',
+    config.allowUnixSockets.length > 0
+      ? `- El socket de Docker está abierto (${code('allowUnixSockets')}): un contenedor puede montar cualquier carpeta que Docker comparta y saltarse el sandbox. Es el precio de que el agente corra tests con Docker.`
+      : `- Docker queda bloqueado: el sandbox no deja abrir sus sockets. Si los tests lo necesitan, agrega el socket en ${code('allowUnixSockets')}, sabiendo que un contenedor puede saltarse el sandbox.`,
     '',
     '## Revisar',
     '',

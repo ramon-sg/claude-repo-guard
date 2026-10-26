@@ -45,6 +45,7 @@ export const settingsFragment = (config) => {
     network: {
       allowedDomains: [...BASE_DOMAINS, ...config.allowedDomains.filter((domain) => !BASE_DOMAINS.includes(domain))],
       ...(config.localBinding ? { allowLocalBinding: true } : {}),
+      ...(config.allowUnixSockets.length > 0 ? { allowUnixSockets: config.allowUnixSockets } : {}),
     },
   };
   return {
