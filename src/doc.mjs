@@ -1,4 +1,4 @@
-import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
+import { AUTO_MODE_FILE, autoModeSettings, commandRule, scripts, settingsFragment } from './profile.mjs';
 
 /** Cómo se invoca la herramienta sin instalarla. */
 const CLI = 'npx github:ramon-sg/claude-repo-guard';
@@ -84,8 +84,25 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     ...(config.protectedPaths.length > 0
       ? [`| ${config.protectedPaths.map((path) => code(`Edit(${path})`)).join(', ')} | Claude no edita esos archivos, ni con sus herramientas ni desde Bash | Lo que otro proceso escriba ahí |`]
       : []),
+    ...(config.askCommands.length > 0
+      ? [`| ${code('permissions.ask')}: ${config.askCommands.map((command) => code(commandRule(command))).join(', ')} | Esos comandos piden confirmación; donde nadie contesta, se rechazan (ver abajo). Un texto que solo los nombra (un mensaje, un comentario) pasa | Un comando escondido dentro de ${code('bash -c "..."')} o de un script: atrapa equivocaciones, no a quien quiere esquivarla |`]
+      : []),
+    ...(config.denyCommands.length > 0
+      ? [`| ${code('permissions.deny')}: ${config.denyCommands.map((command) => code(commandRule(command))).join(', ')} | Esos comandos se rechazan siempre, en todos los modos | Lo mismo: un comando escondido dentro de ${code('bash -c "..."')} o de un script |`]
+      : []),
     `| Contexto del modo auto | El clasificador no frena el trabajo rutinario (borrar en el worktree, servicios locales${config.integrationBranch ? `, merge a ${code(config.integrationBranch)}` : ''}) | Solo aplica si Claude se abre con ${code(`--settings ${AUTO_MODE_FILE}`)} |`,
     '',
+    ...(config.askCommands.length > 0
+      ? [
+          '### Qué pasa con los comandos que piden confirmación',
+          '',
+          '| Cómo arranca Claude | Qué pasa |',
+          '| --- | --- |',
+          `| ${code('claude')}, ${code(run('claude:auto'))} o ${code(run('claude:free'))} | Te pregunta. El modo auto no lo aprueba solo |`,
+          `| ${code('--permission-prompts none')}, ${code('claude -p')} o el modo ${code('dontAsk')} | Se rechaza y Claude sigue con otra cosa |`,
+          '',
+        ]
+      : []),
     '## En la nube',
     '',
     'El repo funciona igual en una sesión local y en una de claude.ai/code. Lo que cambia en la nube:',

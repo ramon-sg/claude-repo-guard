@@ -168,6 +168,30 @@ test('sin allowUnixSockets no se abre ningún socket y el documento lo dice', as
   assert.match(read('docs/development/claude-repo-guard.md'), /Docker queda bloqueado/);
 });
 
+test('askCommands y denyCommands se vuelven reglas de permisos y se quitan al desinstalar', async () => {
+  fs.writeFileSync(
+    path.join(root, '.claude', 'repo-guard.config.json'),
+    JSON.stringify({ askCommands: ['git reset --hard', 'kubectl delete'], denyCommands: ['helm uninstall'] }),
+  );
+  await run('install', '--yes');
+  const { permissions } = json('.claude/settings.json');
+  assert.deepEqual(permissions.ask, ['Bash(git reset --hard*)', 'Bash(kubectl delete*)']);
+  assert.deepEqual(permissions.deny, ['Bash(rm -rf /)', 'Edit(/.husky/**)', 'Bash(helm uninstall*)']);
+  const doc = read('docs/development/claude-repo-guard.md');
+  assert.match(doc, /Qué pasa con los comandos que piden confirmación/);
+  assert.match(doc, /`Bash\(helm uninstall\*\)`/);
+  assert.equal(await run('doctor', '--repo'), 0);
+
+  await run('uninstall', '--yes');
+  assert.equal(read('.claude/settings.json'), ORIGINAL_SETTINGS);
+});
+
+test('un comando con paréntesis en askCommands se rechaza', async () => {
+  fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ askCommands: ['Bash(git push)'] }));
+  assert.equal(await run('install', '--yes'), 1);
+  assert.match(output, /sin paréntesis/);
+});
+
 test('uninstall deja el repo byte a byte como estaba', async () => {
   await run('install', '--yes');
   assert.equal(await run('uninstall', '--yes'), 0);

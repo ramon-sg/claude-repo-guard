@@ -57,11 +57,27 @@ export const settingsFragment = (config) => {
       ...(config.allowUnixSockets.length > 0 ? { allowUnixSockets: config.allowUnixSockets } : {}),
     },
   };
+  const deny = [...config.protectedPaths.map((path) => `Edit(${path})`), ...config.denyCommands.map(commandRule)];
+  const ask = config.askCommands.map(commandRule);
+  const permissions = {
+    ...(ask.length > 0 ? { ask } : {}),
+    ...(deny.length > 0 ? { deny } : {}),
+  };
   return {
     sandbox,
-    ...(config.protectedPaths.length > 0 ? { permissions: { deny: config.protectedPaths.map((path) => `Edit(${path})`) } } : {}),
+    ...(Object.keys(permissions).length > 0 ? { permissions } : {}),
   };
 };
+
+/**
+ * Regla de permisos de Claude Code para un comando y todo lo que le sigue:
+ * `git reset --hard` → `Bash(git reset --hard*)`. Mira el comando que se
+ * ejecuta, no el texto suelto: un mensaje que solo lo nombra pasa.
+ *
+ * @param {string} command
+ * @returns {string}
+ */
+export const commandRule = (command) => `Bash(${command.trim()}*)`;
 
 /**
  * @param {import('./config.mjs').Config} config
