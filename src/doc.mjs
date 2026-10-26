@@ -71,6 +71,7 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     ...(config.localBinding
       ? [`| ${code('network.allowLocalBinding')} | En macOS deja levantar servidores y conectarse a localhost (bases de dev, servidores de tests) | Expone todos los servicios de localhost, no solo los del repo. En Linux no tiene efecto: cada comando tiene su propio loopback |`]
       : []),
+    `| ${code('filesystem.allowWrite')}: ${code('/private/var/folders')} | En macOS, ${code('mktemp')} sin plantilla crea ahí sus temporales (ignora ${code('TMPDIR')}). Sin esto fallan los tests en shell que usan ${code('mktemp -d')} | Abre también la caché del usuario en esa carpeta. Las carpetas de otros usuarios siguen protegidas por sus permisos |`,
     ...(config.allowWrite.length > 0
       ? [`| ${code('filesystem.allowWrite')}: ${config.allowWrite.map(code).join(', ')} | Los comandos pueden escribir ahí además del worktree (registros o cachés compartidos entre worktrees) | Lo que haya en esas rutas queda a su alcance, también para borrarlo |`]
       : []),
@@ -107,6 +108,8 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     '## Limitaciones conocidas',
     '',
     `- ${code('pnpm install')} no funciona dentro del sandbox: pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`,
+    `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,
+    `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} install`)} se corre desde tu terminal, no desde una sesión de Claude.`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,
     '- El sandbox no cubre las credenciales que se pueden leer en tu home: limítalas con los permisos de cada aplicación.',
     config.allowUnixSockets.length > 0
