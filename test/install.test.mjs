@@ -59,6 +59,7 @@ test('install fusiona sin pisar los hooks ni las reglas del repo', async () => {
   assert.equal(settings.sandbox.failIfUnavailable, undefined, 'con failIfUnavailable la sesión en la nube no arranca');
   assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
   assert.ok(settings.sandbox.network.allowedDomains.includes('registry.npmjs.org'));
+  assert.deepEqual(settings.sandbox.filesystem.allowWrite, ['/private/var/folders'], 'mktemp de macOS escribe ahí aunque TMPDIR diga otra cosa');
   assert.equal(settings.autoMode, undefined, 'autoMode no va en los settings del repo: Claude no lo lee de ahí');
 });
 
@@ -150,7 +151,7 @@ test('allowWrite y allowUnixSockets llegan al sandbox y al documento', async () 
   );
   await run('install', '--yes');
   const { sandbox } = json('.claude/settings.json');
-  assert.deepEqual(sandbox.filesystem.allowWrite, ['~/.cleanqueen']);
+  assert.deepEqual(sandbox.filesystem.allowWrite, ['/private/var/folders', '~/.cleanqueen']);
   assert.deepEqual(sandbox.network.allowUnixSockets, ['/var/run/docker.sock']);
   const doc = read('docs/development/claude-repo-guard.md');
   assert.match(doc, /El socket de Docker está abierto/);

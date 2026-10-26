@@ -23,6 +23,8 @@ npx github:ramon-sg/claude-repo-guard uninstall           # deja el repo como es
 
 Commitea los archivos que agrega: así cada worktree y cada persona del equipo los trae.
 
+Corre `install` y `uninstall` desde tu terminal, no desde una sesión de Claude: una vez instalado, el sandbox no deja que los comandos de Claude escriban `.claude/settings.json`. Eso también rige para la sesión que estaba abierta mientras instalabas, porque Claude relee los settings en vivo.
+
 ## Cómo se usa
 
 | Para | Comando | Qué hace |
@@ -107,6 +109,11 @@ Para habilitarlo:
 
 Abre solo lo que los tests usan de verdad. Cada ruta que agregas queda al alcance del agente, también para borrarla.
 
+Dos casos que la herramienta ya resuelve o que no tienen arreglo en la configuración:
+
+- **`mktemp` en macOS:** sin plantilla, ignora `TMPDIR` y crea el temporal en `/private/var/folders/<algo>/T`, que cambia en cada máquina. Por eso `/private/var/folders` va siempre en `allowWrite`; no tienes que agregarlo.
+- **`ps` y `pgrep` en macOS:** el sandbox no deja listar procesos, y no hay opción que lo habilite. Si un test los usa para encontrar un proceso, haz que ese proceso anote su `$$` o su `$PPID` en un archivo.
+
 ### Docker
 
 Para que el agente corra tests que levantan contenedores (`docker compose`, testcontainers), agrega el socket de Docker en `allowUnixSockets`. La ruta depende de cómo tengas Docker instalado; puedes listar varias y sirven en todas las máquinas del equipo:
@@ -152,6 +159,7 @@ Los tests de integración y el E2E de Cleanqueen usan un registro de puertos com
 - **Credenciales de terceros** (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code. El sandbox deja leer tu home.
 - **`--dangerously-skip-permissions`:** en ese modo la lista de dominios no frena nada.
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
+- **`ps` y `pgrep` en macOS:** no corren dentro del sandbox. Ver [Tests que salen del worktree](#tests-que-salen-del-worktree).
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
 - **El socket de Docker, si lo abres:** un contenedor puede montar lo que Docker comparta y saltarse el sandbox. Ver [Docker](#docker).
 - **Código del agente que corre fuera del sandbox** (CI, scripts que corres tú).

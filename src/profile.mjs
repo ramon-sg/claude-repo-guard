@@ -15,6 +15,15 @@ export const BASE_DOMAINS = [
   'raw.githubusercontent.com',
 ];
 
+/**
+ * Rutas donde todo repo necesita escribir. En macOS `mktemp` ignora `TMPDIR`
+ * cuando no recibe una plantilla y crea el temporal en la carpeta del usuario
+ * bajo `/private/var/folders`, que cambia de nombre en cada máquina. El sandbox
+ * no acepta comodines, así que se abre la carpeta completa; las de otros
+ * usuarios siguen protegidas por sus permisos. En Linux la ruta no existe.
+ */
+export const BASE_ALLOW_WRITE = ['/private/var/folders'];
+
 /** Contexto que se le da al clasificador del modo auto (en inglés: es texto para el modelo). */
 export const BASE_ENVIRONMENT = [
   'Deleting files inside the current working directory (the git worktree of this session) or the system temp directory is routine cleanup.',
@@ -41,7 +50,7 @@ export const settingsFragment = (config) => {
     enabled: true,
     allowUnsandboxedCommands: false,
     ...(config.weakerNetworkIsolation ? { enableWeakerNetworkIsolation: true } : {}),
-    ...(config.allowWrite.length > 0 ? { filesystem: { allowWrite: config.allowWrite } } : {}),
+    filesystem: { allowWrite: [...BASE_ALLOW_WRITE, ...config.allowWrite.filter((path) => !BASE_ALLOW_WRITE.includes(path))] },
     network: {
       allowedDomains: [...BASE_DOMAINS, ...config.allowedDomains.filter((domain) => !BASE_DOMAINS.includes(domain))],
       ...(config.localBinding ? { allowLocalBinding: true } : {}),
