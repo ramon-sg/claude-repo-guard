@@ -67,11 +67,43 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 | `allowWrite` | `[]` | Rutas extra donde los comandos pueden escribir (`~/` es tu home). Ver [Tests que salen del worktree](#tests-que-salen-del-worktree) |
 | `allowUnixSockets` | `[]` | Sockets locales que los comandos pueden usar, como el de Docker. Abre un hueco en el sandbox: ver [Docker](#docker) |
 | `protectedPaths` | `["/.husky/**"]` | Rutas que Claude no puede editar (`/` es la raíz del repo) |
+| `askCommands` | `[]` | Comandos que piden confirmación, como `git reset --hard`. Ver [Comandos peligrosos](#comandos-peligrosos) |
+| `denyCommands` | `[]` | Comandos que se rechazan siempre |
 | `environment` | `[]` | Más contexto para el modo auto, en prosa |
 | `integrationBranch` | `""` | Rama a la que mergear con merge commit es parte del flujo (por ejemplo `staging`) |
 | `localBinding` | `true` | En macOS, levantar servidores y conectarse a localhost |
 | `weakerNetworkIsolation` | `false` | En macOS, deja que `gh` y otras herramientas en Go verifiquen TLS dentro del sandbox. Debilita el sandbox |
 | `docPath` | `docs/development/claude-repo-guard.md` | Dónde va el documento |
+
+## Comandos peligrosos
+
+Para comandos que a veces hacen falta pero no deberían correr sin que nadie lo sepa, lista el comienzo del comando en `askCommands`; para los que nunca deben correr, en `denyCommands`:
+
+```json
+{
+  "askCommands": ["git reset --hard", "kubectl delete", "helm uninstall"],
+  "denyCommands": ["git push --force"]
+}
+```
+
+Cada uno se vuelve una regla de permisos de Claude Code (`Bash(git reset --hard*)`). Qué pasa con un comando de `askCommands` (la segunda fila se probó con sesiones reales en los cuatro modos, con y sin sandbox; la primera es lo que dice la documentación de Claude Code):
+
+| Cómo arranca Claude | Qué pasa |
+| --- | --- |
+| `claude`, `pnpm claude:auto` o `pnpm claude:free` | Te pregunta. El modo auto no lo aprueba solo |
+| `--permission-prompts none`, `claude -p` o el modo `dontAsk` | Se rechaza y Claude sigue con otra cosa |
+
+`denyCommands` se rechaza en todos los modos, incluso con `--dangerously-skip-permissions`.
+
+**Por qué reglas de permisos y no un hook propio.** Un hook que busca texto en el comando pregunta también cuando el comando solo *nombra* lo peligroso, por ejemplo un `gh api ... -f body="..."` cuyo texto explica qué hace `git reset --hard`. En una sesión sin nadie al lado, ese falso positivo frena un paso legítimo. Las reglas de Claude Code miran el comando que se ejecuta:
+
+| Comando | Hook que busca texto | Regla `Bash(git reset --hard*)` |
+| --- | --- | --- |
+| `echo "... git reset --hard"` | Pregunta | Pasa |
+| `git reset --hard` | Pregunta | Frena |
+| `bash -c "git reset --hard"` | Pregunta | Pasa |
+
+Ninguno de los dos frena a quien quiere esquivarlo: atrapan equivocaciones. Lo que de verdad no debe pasar (producción, secretos, merges a ramas protegidas) se limita con los permisos de cada aplicación.
 
 ## Tests que salen del worktree
 

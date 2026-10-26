@@ -10,6 +10,8 @@ import { readJson } from './files.mjs';
  *   allowWrite: string[],
  *   allowUnixSockets: string[],
  *   protectedPaths: string[],
+ *   askCommands: string[],
+ *   denyCommands: string[],
  *   environment: string[],
  *   integrationBranch: string,
  *   localBinding: boolean,
@@ -24,6 +26,8 @@ export const DEFAULT_CONFIG = {
   allowWrite: [],
   allowUnixSockets: [],
   protectedPaths: ['/.husky/**'],
+  askCommands: [],
+  denyCommands: [],
   environment: [],
   integrationBranch: '',
   localBinding: true,
@@ -51,6 +55,12 @@ export const readConfig = (file) => {
   }
   if (json.data.docPath !== undefined && !json.data.docPath.endsWith('.md')) {
     throw new Error(`${file}: "docPath" tiene que terminar en .md.`);
+  }
+  for (const key of ['askCommands', 'denyCommands']) {
+    const invalid = (json.data[key] ?? []).find((command) => typeof command !== 'string' || command.trim() === '' || /[()]/.test(command));
+    if (invalid !== undefined) {
+      throw new Error(`${file}: "${key}" lleva comandos como "git reset --hard", sin paréntesis; no sirve ${JSON.stringify(invalid)}.`);
+    }
   }
   return { config: { ...DEFAULT_CONFIG, ...json.data }, exists: json.exists };
 };
