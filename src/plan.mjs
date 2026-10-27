@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_CONFIG, readConfig } from './config.mjs';
 import { renderDoc } from './doc.mjs';
+import { detectPackageManager } from './package-manager.mjs';
 import { formatJson, readJson, readText } from './files.mjs';
 import { apply, revert } from './merge.mjs';
 import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
@@ -115,12 +116,13 @@ export const planInstall = (root, version) => {
   const settingsBefore = readText(paths.settings);
   if (previous) revert(settings.data, previous.settingsOperations);
   const createdSettings = previous ? previous.createdSettings : !settings.exists;
-  const settingsOperations = apply(settings.data, settingsFragment(config));
+  const packageManager = detectPackageManager(paths.packageJson);
+  const settingsOperations = apply(settings.data, settingsFragment(config, packageManager));
 
   /** @type {Change[]} */
   const changes = [{ file: paths.settings, before: settingsBefore, after: formatJson(settings) }];
 
-  const hasPackageJson = fs.existsSync(paths.packageJson);
+  const hasPackageJson = packageManager !== null;
   /** @type {Record<string, string>} */
   const addedScripts = {};
   let createdScripts = false;
@@ -151,7 +153,7 @@ export const planInstall = (root, version) => {
   }
 
   changes.push({ file: paths.autoMode, before: readText(paths.autoMode), after: `${JSON.stringify(autoModeSettings(config), null, 2)}\n` });
-  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, hasPackageJson }) });
+  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager }) });
 
   const files = [AUTO_MODE_FILE, config.docPath];
   const current = [paths.autoMode, paths.doc];

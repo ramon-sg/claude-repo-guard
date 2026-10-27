@@ -74,6 +74,70 @@ test('install agrega los scripts, el contexto del modo auto y el documento', asy
   assert.ok(exists('.claude/repo-guard.config.json'));
 });
 
+const writePackage = (extra) => fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'demo', ...extra }, null, 2));
+const touch = (file) => fs.writeFileSync(path.join(root, file), '');
+const doc = () => read('docs/development/claude-repo-guard.md');
+
+test('el documento usa bun si el repo tiene bun.lock', async () => {
+  touch('bun.lock');
+  await run('install', '--yes');
+  assert.match(doc(), /`bun run claude:auto`/);
+  assert.match(doc(), /`bun run claude:free`/);
+  assert.doesNotMatch(doc(), /pnpm/);
+  assert.equal(await run('doctor', '--repo'), 0);
+});
+
+test('el documento usa bun si packageManager dice bun, aunque haya otro lockfile', async () => {
+  writePackage({ packageManager: 'bun@1.4.2' });
+  touch('package-lock.json');
+  await run('install', '--yes');
+  assert.match(doc(), /`bun run claude:auto`/);
+});
+
+test('el documento usa npm con package-lock.json o sin lockfile', async () => {
+  await run('install', '--yes');
+  assert.match(doc(), /`npm run claude:auto`/);
+  assert.doesNotMatch(doc(), /pnpm/);
+
+  touch('package-lock.json');
+  await run('install', '--yes');
+  assert.match(doc(), /`npm run claude:free`/);
+});
+
+test('el documento usa pnpm y avisa de pnpm install con pnpm-lock.yaml', async () => {
+  touch('pnpm-lock.yaml');
+  await run('install', '--yes');
+  assert.match(doc(), /`pnpm claude:auto`/);
+  assert.match(doc(), /`pnpm install` no funciona dentro del sandbox/);
+});
+
+test('con bun el sandbox abre la caché de bun y el documento avisa del riesgo', async () => {
+  touch('bun.lock');
+  await run('install', '--yes');
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', '~/.bun/install/cache']);
+  assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta/);
+  assert.equal(await run('doctor', '--repo'), 0);
+
+  await run('uninstall', '--yes');
+  assert.equal(read('.claude/settings.json'), ORIGINAL_SETTINGS);
+});
+
+test('sin bun el sandbox no abre la caché de bun', async () => {
+  touch('pnpm-lock.yaml');
+  await run('install', '--yes');
+  assert.ok(!json('.claude/settings.json').sandbox.filesystem.allowWrite.includes('~/.bun/install/cache'));
+  assert.doesNotMatch(doc(), /caché de bun/);
+});
+
+test('bunCache: false cierra la caché de bun y el documento dice que bun install no funciona', async () => {
+  touch('bun.lock');
+  fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ bunCache: false }));
+  await run('install', '--yes');
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders']);
+  assert.match(doc(), /`bun install` no funciona dentro del sandbox/);
+  assert.equal(await run('doctor', '--repo'), 0);
+});
+
 test('install dos veces no cambia nada la segunda', async () => {
   await run('install', '--yes');
   const before = read('.claude/settings.json') + read('package.json');

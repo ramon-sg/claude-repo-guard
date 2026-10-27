@@ -36,6 +36,8 @@ Corre `install` y `uninstall` desde tu terminal, no desde una sesión de Claude:
 
 Los argumentos extra pasan a Claude: `pnpm run claude:free -p "..."`.
 
+Los ejemplos usan pnpm. El documento que genera `install` usa el gestor del repo: el campo `packageManager` de `package.json`, si no el lockfile (`bun run claude:auto` con `bun.lock`), y si no hay ninguno, `npm run`.
+
 `pnpm claude:free` equivale a:
 
 ```bash
@@ -73,6 +75,7 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `inst
 | `integrationBranch` | `""` | Rama a la que mergear con merge commit es parte del flujo (por ejemplo `staging`) |
 | `localBinding` | `true` | En macOS, levantar servidores y conectarse a localhost |
 | `weakerNetworkIsolation` | `false` | En macOS, deja que `gh` y otras herramientas en Go verifiquen TLS dentro del sandbox. Debilita el sandbox |
+| `bunCache` | `true` | En repos con bun, abre su caché (`~/.bun/install/cache`) para que `bun install` funcione dentro del sandbox. La caché la comparten todos tus repos |
 | `docPath` | `docs/development/claude-repo-guard.md` | Dónde va el documento |
 
 ## Comandos peligrosos
@@ -144,6 +147,7 @@ Abre solo lo que los tests usan de verdad. Cada ruta que agregas queda al alcanc
 Dos casos que la herramienta ya resuelve o que no tienen arreglo en la configuración:
 
 - **`mktemp` en macOS:** sin plantilla, ignora `TMPDIR` y crea el temporal en `/private/var/folders/<algo>/T`, que cambia en cada máquina. Por eso `/private/var/folders` va siempre en `allowWrite`; no tienes que agregarlo.
+- **`bun install`:** bun escribe en su caché, `~/.bun/install/cache`, y crea ahí su carpeta temporal. En repos con bun esa ruta va sola en `allowWrite`. Si la caché está en otra parte (`BUN_INSTALL_CACHE_DIR`), agrega esa ruta a mano.
 - **`ps` y `pgrep` en macOS:** el sandbox no deja listar procesos, y no hay opción que lo habilite. Si un test los usa para encontrar un proceso, haz que ese proceso anote su `$$` o su `$PPID` en un archivo.
 
 ### Docker
@@ -191,6 +195,7 @@ Los tests de integración y el E2E de Cleanqueen usan un registro de puertos com
 - **Credenciales de terceros** (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code. El sandbox deja leer tu home.
 - **`--dangerously-skip-permissions`:** en ese modo la lista de dominios no frena nada.
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
+- **La caché de bun, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Se cierra con `"bunCache": false`; entonces `bun install` no funciona dentro del sandbox.
 - **`ps` y `pgrep` en macOS:** no corren dentro del sandbox. Ver [Tests que salen del worktree](#tests-que-salen-del-worktree).
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
 - **El socket de Docker, si lo abres:** un contenedor puede montar lo que Docker comparta y saltarse el sandbox. Ver [Docker](#docker).

@@ -16,6 +16,7 @@ import { readJson } from './files.mjs';
  *   integrationBranch: string,
  *   localBinding: boolean,
  *   weakerNetworkIsolation: boolean,
+ *   bunCache: boolean,
  *   docPath: string,
  * }} Config
  */
@@ -32,6 +33,7 @@ export const DEFAULT_CONFIG = {
   integrationBranch: '',
   localBinding: true,
   weakerNetworkIsolation: false,
+  bunCache: true,
   docPath: 'docs/development/claude-repo-guard.md',
 };
 
