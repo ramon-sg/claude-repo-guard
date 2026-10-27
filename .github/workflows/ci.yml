@@ -16,11 +16,11 @@ jobs:
         with:
           node-version: 24
       - run: npm test
-      - name: install, doctor y uninstall sobre un repo vacío
+      - name: apply y uninstall sobre un repo vacío
         run: |
           repo="$(mktemp -d)"
           git -C "$repo" init -q
           cd "$repo"
-          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" install --yes
+          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" apply --yes
           node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" uninstall --yes
           test "$(ls -A "$repo")" = ".git"
