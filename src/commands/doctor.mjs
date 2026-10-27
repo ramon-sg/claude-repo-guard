@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import { readConfig } from '../config.mjs';
 import { renderDoc } from '../doc.mjs';
 import { readJson, readText } from '../files.mjs';
 import { missing } from '../merge.mjs';
+import { detectPackageManager } from '../package-manager.mjs';
 import { FORBIDDEN_SANDBOX_KEYS, autoModeSettings, scripts, settingsFragment } from '../profile.mjs';
 import { repoPaths } from '../repo.mjs';
 
@@ -70,14 +70,15 @@ export const runChecks = (root, version, { machine }) => {
   const autoModeOk = readText(paths.autoMode) === `${JSON.stringify(autoModeSettings(config), null, 2)}\n`;
   checks.push({ ok: autoModeOk, name: 'Contexto del modo auto', detail: autoModeOk ? 'al día' : 'no coincide con la configuración: corre install' });
 
-  const hasPackageJson = fs.existsSync(paths.packageJson);
+  const packageManager = detectPackageManager(paths.packageJson);
+  const hasPackageJson = packageManager !== null;
   if (hasPackageJson) {
     const current = readJson(paths.packageJson).data.scripts ?? {};
     const wrong = Object.entries(scripts()).filter(([name, value]) => current[name] !== value).map(([name]) => name);
     checks.push({ ok: wrong.length === 0, name: 'Scripts', detail: wrong.length === 0 ? 'claude:auto y claude:free' : `falta o cambió: ${wrong.join(', ')}` });
   }
 
-  const docOk = readText(paths.doc) === renderDoc(config, { version, hasPackageJson });
+  const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager });
   checks.push({ ok: docOk, name: 'Documento', detail: docOk ? config.docPath : `${config.docPath} no coincide con la configuración: corre install` });
 
   if (!machine) return checks;

@@ -1,4 +1,5 @@
 import { AUTO_MODE_FILE, autoModeSettings, commandRule, scripts, settingsFragment } from './profile.mjs';
+import { runScript } from './package-manager.mjs';
 
 /** Cómo se invoca la herramienta sin instalarla. */
 const CLI = 'npx github:ramon-sg/claude-repo-guard';
@@ -12,12 +13,13 @@ const json = (value) => ['```json', JSON.stringify(value, null, 2), '```'].join(
  * el mismo perfil que los settings: si cambian las reglas, cambia el documento.
  *
  * @param {import('./config.mjs').Config} config
- * @param {{ version: string, hasPackageJson: boolean }} context
+ * @param {{ version: string, packageManager: import('./package-manager.mjs').PackageManager | null }} context
  * @returns {string} el markdown completo.
  */
-export const renderDoc = (config, { version, hasPackageJson }) => {
+export const renderDoc = (config, { version, packageManager }) => {
   const fragment = settingsFragment(config);
-  const run = (name) => (hasPackageJson ? `pnpm ${name}` : scripts()[name]);
+  const hasPackageJson = packageManager !== null;
+  const run = (name) => (packageManager ? runScript(packageManager, name) : scripts()[name]);
   const lines = [
     '# Barandas de Claude Code en este repo',
     '',
@@ -124,7 +126,9 @@ export const renderDoc = (config, { version, hasPackageJson }) => {
     '',
     '## Limitaciones conocidas',
     '',
-    `- ${code('pnpm install')} no funciona dentro del sandbox: pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`,
+    ...(packageManager === 'pnpm'
+      ? [`- ${code('pnpm install')} no funciona dentro del sandbox: pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`]
+      : []),
     `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,
     `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} install`)} se corre desde tu terminal, no desde una sesión de Claude.`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,

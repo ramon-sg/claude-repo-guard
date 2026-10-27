@@ -36,6 +36,8 @@ Corre `install` y `uninstall` desde tu terminal, no desde una sesión de Claude:
 
 Los argumentos extra pasan a Claude: `pnpm run claude:free -p "..."`.
 
+Los ejemplos usan pnpm. El documento que genera `install` usa el gestor del repo: el campo `packageManager` de `package.json`, si no el lockfile (`bun run claude:auto` con `bun.lock`), y si no hay ninguno, `npm run`.
+
 `pnpm claude:free` equivale a:
 
 ```bash
