@@ -116,12 +116,12 @@ export const planInstall = (root, version) => {
   const settingsBefore = readText(paths.settings);
   if (previous) revert(settings.data, previous.settingsOperations);
   const createdSettings = previous ? previous.createdSettings : !settings.exists;
-  const settingsOperations = apply(settings.data, settingsFragment(config));
+  const packageManager = detectPackageManager(paths.packageJson);
+  const settingsOperations = apply(settings.data, settingsFragment(config, packageManager));
 
   /** @type {Change[]} */
   const changes = [{ file: paths.settings, before: settingsBefore, after: formatJson(settings) }];
 
-  const packageManager = detectPackageManager(paths.packageJson);
   const hasPackageJson = packageManager !== null;
   /** @type {Record<string, string>} */
   const addedScripts = {};
