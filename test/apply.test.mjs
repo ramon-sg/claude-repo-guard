@@ -24,6 +24,8 @@ const ORIGINAL_PACKAGE = `{
 }
 `;
 
+const NPM_CACHE = ['~/.npm/_cacache', '~/.npm/_npx'];
+
 let root;
 let output;
 const realWrite = { out: process.stdout.write, err: process.stderr.write };
@@ -59,7 +61,7 @@ test('apply fusiona sin pisar los hooks ni las reglas del repo', async () => {
   assert.equal(settings.sandbox.failIfUnavailable, undefined, 'con failIfUnavailable la sesión en la nube no arranca');
   assert.equal(settings.sandbox.allowUnsandboxedCommands, false);
   assert.ok(settings.sandbox.network.allowedDomains.includes('registry.npmjs.org'));
-  assert.deepEqual(settings.sandbox.filesystem.allowWrite, ['/private/var/folders'], 'mktemp de macOS escribe ahí aunque TMPDIR diga otra cosa');
+  assert.deepEqual(settings.sandbox.filesystem.allowWrite, ['/private/var/folders', ...NPM_CACHE], 'mktemp de macOS escribe ahí aunque TMPDIR diga otra cosa; npx, en la caché de npm');
   assert.equal(settings.autoMode, undefined, 'autoMode no va en los settings del repo: Claude no lo lee de ahí');
 });
 
@@ -114,7 +116,7 @@ test('el documento usa pnpm y avisa de pnpm install con pnpm-lock.yaml', async (
 test('con bun el sandbox abre la caché de bun y el documento avisa del riesgo', async () => {
   touch('bun.lock');
   await run('apply', '--yes');
-  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', '~/.bun/install/cache']);
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', ...NPM_CACHE, '~/.bun/install/cache']);
   assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta/);
   assert.equal(await run('doctor', '--repo'), 0);
 
@@ -133,8 +135,23 @@ test('bunCache: false cierra la caché de bun y el documento dice que bun instal
   touch('bun.lock');
   fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ bunCache: false }));
   await run('apply', '--yes');
-  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders']);
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', ...NPM_CACHE]);
   assert.match(doc(), /`bun install` no funciona dentro del sandbox/);
+  assert.equal(await run('doctor', '--repo'), 0);
+});
+
+test('la caché de npm se abre en todo repo, aunque use bun, y el documento avisa del riesgo', async () => {
+  touch('bun.lock');
+  await run('apply', '--yes');
+  assert.ok(NPM_CACHE.every((dir) => json('.claude/settings.json').sandbox.filesystem.allowWrite.includes(dir)));
+  assert.match(doc(), /La caché de npm \(`~\/.npm\/_cacache` y `~\/.npm\/_npx`\) está abierta/);
+});
+
+test('npmCache: false cierra la caché de npm y el documento dice que npx no funciona', async () => {
+  fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ npmCache: false }));
+  await run('apply', '--yes');
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders']);
+  assert.match(doc(), /`npx` de un paquete que no está en el repo no funciona dentro del sandbox/);
   assert.equal(await run('doctor', '--repo'), 0);
 });
 
@@ -233,7 +250,7 @@ test('allowWrite y allowUnixSockets llegan al sandbox y al documento', async () 
   );
   await run('apply', '--yes');
   const { sandbox } = json('.claude/settings.json');
-  assert.deepEqual(sandbox.filesystem.allowWrite, ['/private/var/folders', '~/.cleanqueen']);
+  assert.deepEqual(sandbox.filesystem.allowWrite, ['/private/var/folders', ...NPM_CACHE, '~/.cleanqueen']);
   assert.deepEqual(sandbox.network.allowUnixSockets, ['/var/run/docker.sock']);
   const doc = read('docs/development/claude-repo-guard.md');
   assert.match(doc, /El socket de Docker está abierto/);

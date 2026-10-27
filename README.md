@@ -77,6 +77,7 @@ En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `appl
 | `integrationBranch` | `""` | Rama a la que mergear con merge commit es parte del flujo (por ejemplo `staging`) |
 | `localBinding` | `true` | En macOS, levantar servidores y conectarse a localhost |
 | `weakerNetworkIsolation` | `false` | En macOS, deja que `gh` y otras herramientas en Go verifiquen TLS dentro del sandbox. Debilita el sandbox |
+| `npmCache` | `true` | Abre la caché de npm (`~/.npm/_cacache` y `~/.npm/_npx`) para que `npx` corra paquetes que no están en el repo. Se abre en todo repo, también los de bun o pnpm. La caché la comparten todos tus repos |
 | `bunCache` | `true` | En repos con bun, abre su caché (`~/.bun/install/cache`) para que `bun install` funcione dentro del sandbox. La caché la comparten todos tus repos |
 | `docPath` | `docs/development/claude-repo-guard.md` | Dónde va el documento |
 
@@ -149,6 +150,7 @@ Abre solo lo que los tests usan de verdad. Cada ruta que agregas queda al alcanc
 Dos casos que la herramienta ya resuelve o que no tienen arreglo en la configuración:
 
 - **`mktemp` en macOS:** sin plantilla, ignora `TMPDIR` y crea el temporal en `/private/var/folders/<algo>/T`, que cambia en cada máquina. Por eso `/private/var/folders` va siempre en `allowWrite`; no tienes que agregarlo.
+- **`npx` de un paquete que no está en el repo:** npm lo descarga a `~/.npm/_cacache` y lo instala en `~/.npm/_npx`. Esas dos rutas van solas en `allowWrite`. Si la caché de npm está en otra parte (`npm_config_cache`), agrega esa ruta a mano.
 - **`bun install`:** bun escribe en su caché, `~/.bun/install/cache`, y crea ahí su carpeta temporal. En repos con bun esa ruta va sola en `allowWrite`. Si la caché está en otra parte (`BUN_INSTALL_CACHE_DIR`), agrega esa ruta a mano.
 - **`ps` y `pgrep` en macOS:** el sandbox no deja listar procesos, y no hay opción que lo habilite. Si un test los usa para encontrar un proceso, haz que ese proceso anote su `$$` o su `$PPID` en un archivo.
 
@@ -197,6 +199,7 @@ Los tests de integración y el E2E de Cleanqueen usan un registro de puertos com
 - **Credenciales de terceros** (secretos, Kubernetes, GitHub, merges a ramas protegidas): se limitan con los permisos de cada aplicación, no con Claude Code. El sandbox deja leer tu home.
 - **`--dangerously-skip-permissions`:** en ese modo la lista de dominios no frena nada.
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
+- **La caché de npm, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo correría así fuera del sandbox. Se cierra con `"npmCache": false`; entonces `npx` de un paquete que no está en el repo no funciona dentro del sandbox.
 - **La caché de bun, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Se cierra con `"bunCache": false`; entonces `bun install` no funciona dentro del sandbox.
 - **`ps` y `pgrep` en macOS:** no corren dentro del sandbox. Ver [Tests que salen del worktree](#tests-que-salen-del-worktree).
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.

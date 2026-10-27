@@ -1,4 +1,4 @@
-import { AUTO_MODE_FILE, BUN_CACHE, autoModeSettings, commandRule, scripts, settingsFragment } from './profile.mjs';
+import { AUTO_MODE_FILE, BUN_CACHE, NPM_CACHE, autoModeSettings, commandRule, scripts, settingsFragment } from './profile.mjs';
 import { runScript } from './package-manager.mjs';
 
 /** Cómo se invoca la herramienta sin instalarla. */
@@ -129,6 +129,9 @@ export const renderDoc = (config, { version, packageManager }) => {
     ...(packageManager === 'pnpm'
       ? [`- ${code('pnpm install')} no funciona dentro del sandbox: pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`]
       : []),
+    config.npmCache
+      ? `- La caché de npm (${NPM_CACHE.map(code).join(' y ')}) está abierta para que ${code('npx')} corra paquetes que no están en el repo. La comparten todos tus repos: un comando de Claude podría alterar un paquete guardado, y otro repo lo correría así fuera del sandbox. Para cerrarla, pon ${code('"npmCache": false')} en ${code('.claude/repo-guard.config.json')}.`
+      : `- ${code('npx')} de un paquete que no está en el repo no funciona dentro del sandbox: la caché de npm está cerrada (${code('"npmCache": false')}). Córrelo fuera de Claude o agrega el paquete al repo.`,
     ...(packageManager === 'bun'
       ? [
           config.bunCache
