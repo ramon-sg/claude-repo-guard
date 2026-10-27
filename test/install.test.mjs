@@ -111,6 +111,33 @@ test('el documento usa pnpm y avisa de pnpm install con pnpm-lock.yaml', async (
   assert.match(doc(), /`pnpm install` no funciona dentro del sandbox/);
 });
 
+test('con bun el sandbox abre la caché de bun y el documento avisa del riesgo', async () => {
+  touch('bun.lock');
+  await run('install', '--yes');
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', '~/.bun/install/cache']);
+  assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta/);
+  assert.equal(await run('doctor', '--repo'), 0);
+
+  await run('uninstall', '--yes');
+  assert.equal(read('.claude/settings.json'), ORIGINAL_SETTINGS);
+});
+
+test('sin bun el sandbox no abre la caché de bun', async () => {
+  touch('pnpm-lock.yaml');
+  await run('install', '--yes');
+  assert.ok(!json('.claude/settings.json').sandbox.filesystem.allowWrite.includes('~/.bun/install/cache'));
+  assert.doesNotMatch(doc(), /caché de bun/);
+});
+
+test('bunCache: false cierra la caché de bun y el documento dice que bun install no funciona', async () => {
+  touch('bun.lock');
+  fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ bunCache: false }));
+  await run('install', '--yes');
+  assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders']);
+  assert.match(doc(), /`bun install` no funciona dentro del sandbox/);
+  assert.equal(await run('doctor', '--repo'), 0);
+});
+
 test('install dos veces no cambia nada la segunda', async () => {
   await run('install', '--yes');
   const before = read('.claude/settings.json') + read('package.json');

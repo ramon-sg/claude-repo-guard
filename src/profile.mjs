@@ -24,6 +24,12 @@ export const BASE_DOMAINS = [
  */
 export const BASE_ALLOW_WRITE = ['/private/var/folders'];
 
+/**
+ * Caché de bun. `bun install` también crea ahí su carpeta temporal: sin
+ * escribir en ella no instala nada. Solo se abre en repos con bun.
+ */
+export const BUN_CACHE = '~/.bun/install/cache';
+
 /** Contexto que se le da al clasificador del modo auto (en inglés: es texto para el modelo). */
 export const BASE_ENVIRONMENT = [
   'Deleting files inside the current working directory (the git worktree of this session) or the system temp directory is routine cleanup.',
@@ -43,14 +49,16 @@ export const FORBIDDEN_SANDBOX_KEYS = ['failIfUnavailable'];
 
 /**
  * @param {import('./config.mjs').Config} config
+ * @param {import('./package-manager.mjs').PackageManager | null} packageManager
  * @returns {Record<string, unknown>} lo que se fusiona en `.claude/settings.json`.
  */
-export const settingsFragment = (config) => {
+export const settingsFragment = (config, packageManager) => {
+  const base = [...BASE_ALLOW_WRITE, ...(packageManager === 'bun' && config.bunCache ? [BUN_CACHE] : [])];
   const sandbox = {
     enabled: true,
     allowUnsandboxedCommands: false,
     ...(config.weakerNetworkIsolation ? { enableWeakerNetworkIsolation: true } : {}),
-    filesystem: { allowWrite: [...BASE_ALLOW_WRITE, ...config.allowWrite.filter((path) => !BASE_ALLOW_WRITE.includes(path))] },
+    filesystem: { allowWrite: [...base, ...config.allowWrite.filter((path) => !base.includes(path))] },
     network: {
       allowedDomains: [...BASE_DOMAINS, ...config.allowedDomains.filter((domain) => !BASE_DOMAINS.includes(domain))],
       ...(config.localBinding ? { allowLocalBinding: true } : {}),

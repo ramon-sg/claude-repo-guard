@@ -50,7 +50,8 @@ export const runChecks = (root, version, { machine }) => {
   });
 
   const settings = readJson(paths.settings).data;
-  const gaps = missing(settings, settingsFragment(config));
+  const packageManager = detectPackageManager(paths.packageJson);
+  const gaps = missing(settings, settingsFragment(config, packageManager));
   checks.push({
     ok: gaps.length === 0,
     name: '.claude/settings.json',
@@ -70,7 +71,6 @@ export const runChecks = (root, version, { machine }) => {
   const autoModeOk = readText(paths.autoMode) === `${JSON.stringify(autoModeSettings(config), null, 2)}\n`;
   checks.push({ ok: autoModeOk, name: 'Contexto del modo auto', detail: autoModeOk ? 'al día' : 'no coincide con la configuración: corre install' });
 
-  const packageManager = detectPackageManager(paths.packageJson);
   const hasPackageJson = packageManager !== null;
   if (hasPackageJson) {
     const current = readJson(paths.packageJson).data.scripts ?? {};
