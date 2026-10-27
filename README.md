@@ -15,15 +15,17 @@ Barandas para correr Claude Code sin preguntas de permisos, instaladas **en cada
 Dentro del repo:
 
 ```bash
-npx github:ramon-sg/claude-repo-guard install --dry-run   # muestra los cambios
-npx github:ramon-sg/claude-repo-guard install             # los aplica (pregunta antes)
+npx github:ramon-sg/claude-repo-guard apply --dry-run     # muestra los cambios
+npx github:ramon-sg/claude-repo-guard apply               # los aplica (pregunta antes)
 npx github:ramon-sg/claude-repo-guard doctor              # revisa que todo coincida
 npx github:ramon-sg/claude-repo-guard uninstall           # deja el repo como estaba
 ```
 
+`apply` es el único comando para instalar, actualizar y aplicar cambios: deja el repo como dicen la versión que corres y `.claude/repo-guard.config.json`. Correrlo dos veces no cambia nada. Para actualizar, córrelo con la versión nueva (`npx github:ramon-sg/claude-repo-guard#v0.5.0 apply`); no hace falta `uninstall` antes. Hasta la v0.4.1 se llamaba `install`.
+
 Commitea los archivos que agrega: así cada worktree y cada persona del equipo los trae.
 
-Corre `install` y `uninstall` desde tu terminal, no desde una sesión de Claude: una vez instalado, el sandbox no deja que los comandos de Claude escriban `.claude/settings.json`. Eso también rige para la sesión que estaba abierta mientras instalabas, porque Claude relee los settings en vivo.
+Corre `apply` y `uninstall` desde tu terminal, no desde una sesión de Claude: una vez instalado, el sandbox no deja que los comandos de Claude escriban `.claude/settings.json`. Eso también rige para la sesión que estaba abierta mientras instalabas, porque Claude relee los settings en vivo.
 
 ## Cómo se usa
 
@@ -36,7 +38,7 @@ Corre `install` y `uninstall` desde tu terminal, no desde una sesión de Claude:
 
 Los argumentos extra pasan a Claude: `pnpm run claude:free -p "..."`.
 
-Los ejemplos usan pnpm. El documento que genera `install` usa el gestor del repo: el campo `packageManager` de `package.json`, si no el lockfile (`bun run claude:auto` con `bun.lock`), y si no hay ninguno, `npm run`.
+Los ejemplos usan pnpm. El documento que genera `apply` usa el gestor del repo: el campo `packageManager` de `package.json`, si no el lockfile (`bun run claude:auto` con `bun.lock`), y si no hay ninguno, `npm run`.
 
 `pnpm claude:free` equivale a:
 
@@ -57,11 +59,11 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 | `.claude/repo-guard.config.json` | Las opciones del repo |
 | `.claude/repo-guard.manifest.json` | Lo que agregó la instalación, para deshacerlo exacto |
 
-`uninstall` quita solo lo que agregó `install`: respeta lo que hayas cambiado o agregado después a mano, y si el archivo vuelve a su contenido original, restaura también su formato.
+`uninstall` quita solo lo que agregó `apply`: respeta lo que hayas cambiado o agregado después a mano, y si el archivo vuelve a su contenido original, restaura también su formato.
 
 ## Opciones
 
-En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `install`.
+En `.claude/repo-guard.config.json`. Después de editarlo, vuelve a correr `apply`.
 
 | Opción | Default | Para qué |
 | --- | --- | --- |
@@ -134,7 +136,7 @@ Para habilitarlo:
 3. **Aplica y revisa:**
 
    ```bash
-   npx github:ramon-sg/claude-repo-guard install
+   npx github:ramon-sg/claude-repo-guard apply
    npx github:ramon-sg/claude-repo-guard doctor
    ```
 

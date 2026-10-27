@@ -2,7 +2,7 @@ import { AUTO_MODE_FILE, BUN_CACHE, autoModeSettings, commandRule, scripts, sett
 import { runScript } from './package-manager.mjs';
 
 /** Cómo se invoca la herramienta sin instalarla. */
-const CLI = 'npx github:ramon-sg/claude-repo-guard';
+export const CLI = 'npx github:ramon-sg/claude-repo-guard';
 
 const code = (value) => `\`${value}\``;
 
@@ -23,7 +23,7 @@ export const renderDoc = (config, { version, packageManager }) => {
   const lines = [
     '# Barandas de Claude Code en este repo',
     '',
-    `> Generado por [claude-repo-guard](https://github.com/ramon-sg/claude-repo-guard) v${version}. No lo edites a mano: cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} install`)}.`,
+    `> Generado por [claude-repo-guard](https://github.com/ramon-sg/claude-repo-guard) v${version}. No lo edites a mano: cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} apply`)}.`,
     '',
     '## En simple',
     '',
@@ -119,7 +119,7 @@ export const renderDoc = (config, { version, packageManager }) => {
     '',
     `- **Una sesión:** ${code(run('claude:free'))}.`,
     `- **Siempre, solo en tu máquina:** pon ${code('{"sandbox": {"enabled": false}}')} en ${code('.claude/settings.local.json')}, que tiene más prioridad que el del repo. Agrégalo a ${code('.gitignore')} si no está.`,
-    `- **Una regla puntual:** cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} install`)}.`,
+    `- **Una regla puntual:** cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} apply`)}.`,
     `- **Todo:** ${code(`${CLI} uninstall`)} deja el repo como estaba. Respeta lo que hayas agregado después a mano.`,
     '',
     'Las listas `deny` se suman entre niveles de settings: no se pueden quitar desde `--settings` ni desde `settings.local.json`, solo desde la configuración de este repo.',
@@ -137,7 +137,7 @@ export const renderDoc = (config, { version, packageManager }) => {
         ]
       : []),
     `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,
-    `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} install`)} se corre desde tu terminal, no desde una sesión de Claude.`,
+    `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} apply`)} se corre desde tu terminal, no desde una sesión de Claude.`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,
     '- El sandbox no cubre las credenciales que se pueden leer en tu home: limítalas con los permisos de cada aplicación.',
     config.allowUnixSockets.length > 0

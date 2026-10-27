@@ -1,9 +1,9 @@
 import { readJson } from './files.mjs';
 
 /**
- * Opciones por repo. Viven en `.claude/repo-guard.config.json`, que `install`
+ * Opciones por repo. Viven en `.claude/repo-guard.config.json`, que `apply`
  * crea con estos valores la primera vez. Se editan a mano y se vuelve a correr
- * `install` para aplicarlas.
+ * `apply` para aplicarlas.
  *
  * @typedef {{
  *   allowedDomains: string[],

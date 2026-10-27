@@ -1,6 +1,6 @@
 {
   "name": "@ramon-sg/claude-repo-guard",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Barandas de Claude Code instaladas en el repo: sandbox acotado al worktree, modo auto sin preguntas y un alias para saltarlas.",
   "type": "module",
   "bin": {

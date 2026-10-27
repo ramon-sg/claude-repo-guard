@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyChanges } from './commands/apply-changes.mjs';
 import { doctor } from './commands/doctor.mjs';
-import { planInstall, planUninstall } from './plan.mjs';
+import { planApply, planUninstall } from './plan.mjs';
 import { repoRoot } from './repo.mjs';
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -14,11 +14,12 @@ export const version = () => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 
 const HELP = `claude-repo-guard: barandas de Claude Code instaladas en el repo.
 
 Uso (dentro del repo):
-  claude-repo-guard install     Agrega el sandbox, las reglas, los scripts y el documento.
-  claude-repo-guard uninstall   Quita lo que agregó install y deja el repo como estaba.
+  claude-repo-guard apply       Deja el repo como dicen esta versión y la configuración:
+                                instala, actualiza o aplica cambios.
+  claude-repo-guard uninstall   Quita lo que agregó apply y deja el repo como estaba.
   claude-repo-guard doctor      Revisa que lo instalado coincida con la configuración.
 
-Opciones de install y uninstall:
+Opciones de apply y uninstall:
   --dry-run   Muestra los cambios sin escribir nada.
   --yes       No pregunta antes de escribir.
 
@@ -40,9 +41,9 @@ export const main = async (argv, cwd = process.cwd()) => {
   const has = (flag) => args.includes(flag);
   try {
     switch (command) {
-      case 'install': {
+      case 'apply': {
         const root = repoRoot(cwd);
-        const { changes } = planInstall(root, version());
+        const { changes } = planApply(root, version());
         return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), verb: 'Aplico' });
       }
       case 'uninstall': {
@@ -54,6 +55,9 @@ export const main = async (argv, cwd = process.cwd()) => {
         }
         return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), verb: 'Quito' });
       }
+      case 'install':
+        process.stderr.write('claude-repo-guard: "install" ahora se llama "apply". Hace lo mismo: instala, actualiza o aplica cambios.\n');
+        return 1;
       case 'doctor':
         return doctor({ root: repoRoot(cwd), version: version(), json: has('--json'), machine: !has('--repo') });
       case '--version':

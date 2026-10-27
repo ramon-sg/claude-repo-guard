@@ -97,7 +97,7 @@ const restoreFormat = (json, original) => {
 const effective = (changes) => changes.filter((change) => change.before !== (change.after ?? ''));
 
 /**
- * Calcula lo que haría `install`, sin escribir nada.
+ * Calcula lo que haría `apply`, sin escribir nada.
  *
  * Si ya hubo una instalación, primero la deshace en memoria y después aplica la
  * configuración actual: así una opción que se quitó también se quita del repo.
@@ -107,7 +107,7 @@ const effective = (changes) => changes.filter((change) => change.before !== (cha
  * @returns {{ changes: Change[], config: import('./config.mjs').Config }}
  * @throws {Error} si un script del repo choca con uno de la herramienta.
  */
-export const planInstall = (root, version) => {
+export const planApply = (root, version) => {
   const { config, exists: configExists } = readConfig(path.join(root, CONFIG_FILE));
   const paths = repoPaths(root, config);
   const previous = readManifest(root);
@@ -139,7 +139,7 @@ export const planInstall = (root, version) => {
       const current = pkg.data.scripts[name];
       const ours = owned[name] !== undefined && owned[name] === current;
       if (current !== undefined && current !== value && !ours) {
-        throw new Error(`package.json ya tiene un script "${name}" distinto. Renómbralo o bórralo y vuelve a correr install.`);
+        throw new Error(`package.json ya tiene un script "${name}" distinto. Renómbralo o bórralo y vuelve a correr apply.`);
       }
       if (current === undefined || ours) addedScripts[name] = value;
       pkg.data.scripts[name] = value;
