@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { readConfig } from '../config.mjs';
-import { renderDoc } from '../doc.mjs';
+import { CLI, renderDoc } from '../doc.mjs';
 import { readJson, readText } from '../files.mjs';
 import { missing } from '../merge.mjs';
 import { detectPackageManager } from '../package-manager.mjs';
@@ -41,12 +41,12 @@ export const runChecks = (root, version, { machine }) => {
 
   const manifest = readJson(paths.manifest);
   if (!manifest.exists) {
-    return [{ ok: false, name: 'Instalación', detail: 'no está instalado en este repo: corre `claude-repo-guard install`' }];
+    return [{ ok: false, name: 'Instalación', detail: 'no está instalado en este repo: corre `claude-repo-guard apply`' }];
   }
   checks.push({
     ok: manifest.data.version === version,
     name: 'Versión',
-    detail: manifest.data.version === version ? `v${version}` : `instalado con v${manifest.data.version}; esta es v${version}: corre install`,
+    detail: manifest.data.version === version ? `v${version}` : `instalado con v${manifest.data.version}; esta es v${version}: corre \`${CLI}#v${version} apply\``,
   });
 
   const settings = readJson(paths.settings).data;
@@ -69,7 +69,7 @@ export const runChecks = (root, version, { machine }) => {
   });
 
   const autoModeOk = readText(paths.autoMode) === `${JSON.stringify(autoModeSettings(config), null, 2)}\n`;
-  checks.push({ ok: autoModeOk, name: 'Contexto del modo auto', detail: autoModeOk ? 'al día' : 'no coincide con la configuración: corre install' });
+  checks.push({ ok: autoModeOk, name: 'Contexto del modo auto', detail: autoModeOk ? 'al día' : 'no coincide con la configuración: corre apply' });
 
   const hasPackageJson = packageManager !== null;
   if (hasPackageJson) {
@@ -79,7 +79,7 @@ export const runChecks = (root, version, { machine }) => {
   }
 
   const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager });
-  checks.push({ ok: docOk, name: 'Documento', detail: docOk ? config.docPath : `${config.docPath} no coincide con la configuración: corre install` });
+  checks.push({ ok: docOk, name: 'Documento', detail: docOk ? config.docPath : `${config.docPath} no coincide con la configuración: corre apply` });
 
   if (!machine) return checks;
   if (process.env.CLAUDE_CODE_REMOTE === 'true') {
