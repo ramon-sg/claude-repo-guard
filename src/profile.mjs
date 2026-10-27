@@ -30,6 +30,13 @@ export const BASE_ALLOW_WRITE = ['/private/var/folders'];
  */
 export const BUN_CACHE = '~/.bun/install/cache';
 
+/**
+ * Caché de npm y carpeta donde `npx` instala lo que corre. Sin ellas, `npx`
+ * de un paquete que no está en el repo falla. Se abren en todo repo: `npx` se
+ * usa aunque el repo use bun o pnpm.
+ */
+export const NPM_CACHE = ['~/.npm/_cacache', '~/.npm/_npx'];
+
 /** Contexto que se le da al clasificador del modo auto (en inglés: es texto para el modelo). */
 export const BASE_ENVIRONMENT = [
   'Deleting files inside the current working directory (the git worktree of this session) or the system temp directory is routine cleanup.',
@@ -53,7 +60,11 @@ export const FORBIDDEN_SANDBOX_KEYS = ['failIfUnavailable'];
  * @returns {Record<string, unknown>} lo que se fusiona en `.claude/settings.json`.
  */
 export const settingsFragment = (config, packageManager) => {
-  const base = [...BASE_ALLOW_WRITE, ...(packageManager === 'bun' && config.bunCache ? [BUN_CACHE] : [])];
+  const base = [
+    ...BASE_ALLOW_WRITE,
+    ...(config.npmCache ? NPM_CACHE : []),
+    ...(packageManager === 'bun' && config.bunCache ? [BUN_CACHE] : []),
+  ];
   const sandbox = {
     enabled: true,
     allowUnsandboxedCommands: false,
