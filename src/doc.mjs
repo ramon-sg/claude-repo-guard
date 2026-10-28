@@ -139,6 +139,7 @@ export const renderDoc = (config, { version, packageManager }) => {
       : []),
     `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,
     `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} apply`)} se corre desde tu terminal, no desde una sesión de Claude.`,
+    `- Git tampoco puede, porque Claude Code protege esas rutas: un ${code('git merge')}, ${code('git pull')} o ${code('git switch')} que cambia ${code('.agents/skills/')}, ${code('.claude/skills')} o ${code('.claude/settings.json')} falla con ${code('Operation not permitted')} y queda a medias. Esos merges se hacen desde tu terminal.`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,
     '- El sandbox no cubre las credenciales que se pueden leer en tu home: limítalas con los permisos de cada aplicación.',
     config.allowUnixSockets.length > 0

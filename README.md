@@ -216,6 +216,7 @@ Los tests de integración y el E2E de Cleanqueen usan un registro de puertos com
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
 - **La caché de npm, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo correría así fuera del sandbox. Se cierra con `"npmCache": false`; entonces `npx` de un paquete que no está en el repo no funciona dentro del sandbox.
 - **La caché de bun, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Se cierra con `"bunCache": false`; entonces `bun install` no funciona dentro del sandbox.
+- **git sobre las skills y los settings:** Claude Code no deja escribir `.agents/skills/`, `.claude/skills` ni `.claude/settings.json` dentro del sandbox, tampoco a git. Un `git merge`, `git pull` o `git switch` que los cambia falla con `Operation not permitted` y queda a medias: hazlo desde tu terminal. Es a propósito, para que un agente no reescriba sus propias skills ni sus permisos.
 - **`ps` y `pgrep` en macOS:** no corren dentro del sandbox. Ver [Tests que salen del worktree](#tests-que-salen-del-worktree).
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
 - **El socket de Docker, si lo abres:** un contenedor puede montar lo que Docker comparta y saltarse el sandbox. Ver [Docker](#docker).
