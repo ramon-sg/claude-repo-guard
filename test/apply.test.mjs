@@ -155,6 +155,11 @@ test('npmCache: false cierra la caché de npm y el documento dice que npx no fun
   assert.equal(await run('doctor', '--repo'), 0);
 });
 
+test('el documento avisa que git no puede tocar las skills ni los settings dentro del sandbox', async () => {
+  await run('apply', '--yes');
+  assert.match(doc(), /un `git merge`, `git pull` o `git switch` que cambia `.agents\/skills\/`, `.claude\/skills` o `.claude\/settings.json` falla con `Operation not permitted`.*desde tu terminal/);
+});
+
 test('apply dos veces no cambia nada la segunda', async () => {
   await run('apply', '--yes');
   const before = read('.claude/settings.json') + read('package.json');
