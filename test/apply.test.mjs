@@ -25,6 +25,14 @@ const ORIGINAL_PACKAGE = `{
 `;
 
 const NPM_CACHE = ['~/.npm/_cacache', '~/.npm/_npx'];
+const GIT_PLUMBING = [
+  'Bash(git commit-tree*)',
+  'Bash(git merge-tree*)',
+  'Bash(git update-ref*)',
+  'Bash(git hash-object*)',
+  'Bash(git read-tree*)',
+  'Bash(git push --no-verify*)',
+];
 
 let root;
 let output;
@@ -155,6 +163,30 @@ test('npmCache: false cierra la caché de npm y el documento dice que npx no fun
   assert.equal(await run('doctor', '--repo'), 0);
 });
 
+test('los comandos internos de git que arman commits piden confirmación, sin configurar nada', async () => {
+  await run('apply', '--yes');
+  assert.deepEqual(json('.claude/settings.json').permissions.ask, GIT_PLUMBING);
+  assert.ok(!json('.claude/settings.json').permissions.ask.some((rule) => /git (commit|merge|push)\*/.test(rule)), 'git commit, merge y push normales no preguntan');
+  assert.match(doc(), /`Bash\(git commit-tree\*\)`.*sin escribir los archivos/);
+  assert.match(doc(), /Qué pasa con los comandos que piden confirmación/);
+  assert.match(doc(), /docs\/decisions\.md/);
+
+  await run('uninstall', '--yes');
+  assert.equal(read('.claude/settings.json'), ORIGINAL_SETTINGS);
+});
+
+test('un comando interno de git repetido en askCommands no se duplica', async () => {
+  fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ askCommands: ['git update-ref'] }));
+  await run('apply', '--yes');
+  assert.deepEqual(json('.claude/settings.json').permissions.ask, GIT_PLUMBING);
+  assert.doesNotMatch(doc(), /\| `permissions.ask`:  \|/);
+});
+
+test('el documento avisa que git no puede tocar las skills ni los settings dentro del sandbox', async () => {
+  await run('apply', '--yes');
+  assert.match(doc(), /un `git merge`, `git pull` o `git switch` que cambia `.agents\/skills\/`, `.claude\/skills` o `.claude\/settings.json` falla con `Operation not permitted`.*desde tu terminal/);
+});
+
 test('apply dos veces no cambia nada la segunda', async () => {
   await run('apply', '--yes');
   const before = read('.claude/settings.json') + read('package.json');
@@ -274,7 +306,7 @@ test('askCommands y denyCommands se vuelven reglas de permisos y se quitan al de
   );
   await run('apply', '--yes');
   const { permissions } = json('.claude/settings.json');
-  assert.deepEqual(permissions.ask, ['Bash(git reset --hard*)', 'Bash(kubectl delete*)']);
+  assert.deepEqual(permissions.ask, [...GIT_PLUMBING, 'Bash(git reset --hard*)', 'Bash(kubectl delete*)']);
   assert.deepEqual(permissions.deny, ['Bash(rm -rf /)', 'Edit(/.husky/**)', 'Bash(helm uninstall*)']);
   const doc = read('docs/development/claude-repo-guard.md');
   assert.match(doc, /Qué pasa con los comandos que piden confirmación/);

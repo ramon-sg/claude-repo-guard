@@ -111,6 +111,21 @@ Cada uno se vuelve una regla de permisos de Claude Code (`Bash(git reset --hard*
 
 Ninguno de los dos frena a quien quiere esquivarlo: atrapan equivocaciones. Lo que de verdad no debe pasar (producción, secretos, merges a ramas protegidas) se limita con los permisos de cada aplicación.
 
+### Commits a las skills y los settings
+
+Claude Code no deja que un comando escriba `.claude/` ni las skills dentro del sandbox. Pero algunos comandos internos de git arman un commit escribiendo solo en `.git`, sin tocar los archivos: con ellos, un agente podría subir cambios a sus propias skills o permisos, y la próxima sesión los cargaría después de un `git pull`. Por eso, en todo repo, `git commit-tree`, `git merge-tree`, `git update-ref`, `git hash-object`, `git read-tree` y `git push --no-verify` piden confirmación. `git commit`, `merge` y `push` normales no preguntan.
+
+Como toda regla, atrapa el uso directo: `git -C . commit-tree` o `bash -c "..."` pasan. Lo que lo frena de verdad es exigir revisión en GitHub para esas rutas, con un `CODEOWNERS` y la regla de la rama principal que pide aprobación de sus dueños:
+
+```
+# .github/CODEOWNERS
+/.claude/        @tu-usuario
+/.agents/        @tu-usuario
+/.mcp.json       @tu-usuario
+```
+
+El detalle y la prueba están en [docs/decisions.md](docs/decisions.md).
+
 ## Tests que salen del worktree
 
 El sandbox deja escribir solo en el worktree y en los temporales, y no deja abrir sockets locales. Algunos tests necesitan más: un registro compartido entre worktrees, una caché en tu home o Docker. Cuando eso pasa, el comando falla con un error como este:
@@ -201,6 +216,7 @@ Los tests de integración y el E2E de Cleanqueen usan un registro de puertos com
 - **`pnpm install` dentro del sandbox:** pnpm no puede abrir el lock de su store. Instala dependencias fuera de Claude o desde un hook.
 - **La caché de npm, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo correría así fuera del sandbox. Se cierra con `"npmCache": false`; entonces `npx` de un paquete que no está en el repo no funciona dentro del sandbox.
 - **La caché de bun, si está abierta:** la comparten todos tus repos. Un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Se cierra con `"bunCache": false`; entonces `bun install` no funciona dentro del sandbox.
+- **git sobre las skills y los settings:** Claude Code no deja escribir `.agents/skills/`, `.claude/skills` ni `.claude/settings.json` dentro del sandbox, tampoco a git. Un `git merge`, `git pull` o `git switch` que los cambia falla con `Operation not permitted` y queda a medias: hazlo desde tu terminal. Es a propósito, para que un agente no reescriba sus propias skills ni sus permisos.
 - **`ps` y `pgrep` en macOS:** no corren dentro del sandbox. Ver [Tests que salen del worktree](#tests-que-salen-del-worktree).
 - **localhost en Linux:** cada comando tiene su propio loopback, así que no llega a los servicios del host.
 - **El socket de Docker, si lo abres:** un contenedor puede montar lo que Docker comparta y saltarse el sandbox. Ver [Docker](#docker).
@@ -217,6 +233,10 @@ El repo funciona igual en una sesión local y en una de claude.ai/code. Probado 
 - **`claude:auto` y `claude:free` son solo para la terminal:** en la nube el modo se elige en el menú.
 
 `doctor` marca un error si `failIfUnavailable` aparece en `.claude/settings.json`.
+
+## Decisiones
+
+Por qué la herramienta hace lo que hace, y qué se descartó: [docs/decisions.md](docs/decisions.md).
 
 ## Requisitos
 
