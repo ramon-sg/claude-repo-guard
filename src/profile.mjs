@@ -37,6 +37,22 @@ export const BUN_CACHE = '~/.bun/install/cache';
  */
 export const NPM_CACHE = ['~/.npm/_cacache', '~/.npm/_npx'];
 
+/**
+ * Comandos internos de git que arman un commit escribiendo solo en `.git`, sin
+ * tocar los archivos. Claude Code no deja escribir `.claude/` ni las skills,
+ * pero con estos un agente podría commitear cambios ahí y subirlos; tras un
+ * pull, la próxima sesión los cargaría. Piden confirmación en todo repo.
+ * `git commit`, `merge` y `push` normales no.
+ */
+export const GIT_PLUMBING_COMMANDS = [
+  'git commit-tree',
+  'git merge-tree',
+  'git update-ref',
+  'git hash-object',
+  'git read-tree',
+  'git push --no-verify',
+];
+
 /** Contexto que se le da al clasificador del modo auto (en inglés: es texto para el modelo). */
 export const BASE_ENVIRONMENT = [
   'Deleting files inside the current working directory (the git worktree of this session) or the system temp directory is routine cleanup.',
@@ -77,7 +93,7 @@ export const settingsFragment = (config, packageManager) => {
     },
   };
   const deny = [...config.protectedPaths.map((path) => `Edit(${path})`), ...config.denyCommands.map(commandRule)];
-  const ask = config.askCommands.map(commandRule);
+  const ask = [...GIT_PLUMBING_COMMANDS, ...config.askCommands.filter((command) => !GIT_PLUMBING_COMMANDS.includes(command))].map(commandRule);
   const permissions = {
     ...(ask.length > 0 ? { ask } : {}),
     ...(deny.length > 0 ? { deny } : {}),
