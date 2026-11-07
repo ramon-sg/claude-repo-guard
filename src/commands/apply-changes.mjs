@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { show } from '../banner.mjs';
+import { CLI } from '../doc.mjs';
 import { lineDiff, writeFile } from '../files.mjs';
 import { confirm } from '../repo.mjs';
 
@@ -22,37 +24,38 @@ const removeEmptyParents = (file, root) => {
  * Muestra los cambios, pide confirmación y los escribe.
  *
  * @param {import('../plan.mjs').Change[]} changes
- * @param {{ root: string, dryRun: boolean, yes: boolean, verb: string }} options
+ * @param {{ root: string, dryRun: boolean, yes: boolean, command: 'apply' | 'uninstall', t: import('../texts/index.mjs').Texts }} options
  * @returns {Promise<number>} código de salida.
  */
-export const applyChanges = async (changes, { root, dryRun, yes, verb }) => {
+export const applyChanges = async (changes, { root, dryRun, yes, command, t }) => {
   if (changes.length === 0) {
-    process.stdout.write('No hay nada que cambiar: el repo ya está al día.\n');
+    show({ mood: 'ok', title: t.changes.upToDate });
     return 0;
   }
 
   for (const change of changes) {
     const name = path.relative(root, change.file);
     if (change.after === null) {
-      process.stdout.write(`\n— ${name} (se borra)\n`);
+      process.stdout.write(`\n— ${name} (${t.changes.deleted})\n`);
       continue;
     }
-    process.stdout.write(`\n${change.before === '' ? '+' : '~'} ${name}${change.before === '' ? ' (nuevo)' : ''}\n`);
+    process.stdout.write(`\n${change.before === '' ? '+' : '~'} ${name}${change.before === '' ? ` (${t.changes.created})` : ''}\n`);
     for (const line of lineDiff(change.before, change.after)) process.stdout.write(`  ${line}\n`);
   }
-  process.stdout.write('\n');
 
+  const withYes = { label: t.changes.dryRunNext, command: `${CLI} ${command} --yes` };
   if (dryRun) {
-    process.stdout.write('Modo --dry-run: no se escribió nada.\n');
+    show({ mood: 'ok', title: t.changes.dryRun, next: withYes });
     return 0;
   }
   if (!yes) {
     if (!process.stdin.isTTY) {
-      process.stderr.write('No hay terminal para confirmar. Revisa los cambios con --dry-run y vuelve a correr con --yes.\n');
+      show({ mood: 'error', title: t.changes.noTerminal, next: { ...withYes, label: t.changes.noTerminalNext } });
       return 1;
     }
-    if (!(await confirm(`¿${verb} estos cambios?`))) {
-      process.stdout.write('No se cambió nada.\n');
+    process.stdout.write('\n');
+    if (!(await confirm(t.changes.confirm[command], t.changes.confirmHint))) {
+      show({ mood: 'ok', title: t.changes.declined });
       return 1;
     }
   }
@@ -65,6 +68,6 @@ export const applyChanges = async (changes, { root, dryRun, yes, verb }) => {
       writeFile(change.file, change.after);
     }
   }
-  process.stdout.write(`Listo: ${changes.length} archivo(s).\n`);
+  show({ mood: 'ok', title: t.changes.done(changes.length), lines: t.changes.doneLines });
   return 0;
 };

@@ -4,62 +4,58 @@ import { fileURLToPath } from 'node:url';
 import { applyChanges } from './commands/apply-changes.mjs';
 import { doctor } from './commands/doctor.mjs';
 import { planApply, planUninstall } from './plan.mjs';
+import { show } from './banner.mjs';
+import { CLI } from './doc.mjs';
+import { LangError, resolveLang, takeLang } from './lang.mjs';
 import { repoRoot } from './repo.mjs';
+import { GuardError, texts } from './texts/index.mjs';
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** @returns {string} la versión del paquete. */
 export const version = () => JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')).version;
 
-const HELP = `claude-repo-guard: barandas de Claude Code instaladas en el repo.
-
-Uso (dentro del repo):
-  claude-repo-guard apply       Deja el repo como dicen esta versión y la configuración:
-                                instala, actualiza o aplica cambios.
-  claude-repo-guard uninstall   Quita lo que agregó apply y deja el repo como estaba.
-  claude-repo-guard doctor      Revisa que lo instalado coincida con la configuración.
-
-Opciones de apply y uninstall:
-  --dry-run   Muestra los cambios sin escribir nada.
-  --yes       No pregunta antes de escribir.
-
-Opciones de doctor:
-  --repo      Solo el repo, sin revisar si la máquina tiene sandbox.
-  --json      Salida en JSON.
-
-La configuración del repo vive en .claude/repo-guard.config.json.
-Más: https://github.com/ramon-sg/claude-repo-guard
-`;
-
 /**
  * @param {string[]} argv argumentos sin `node` ni el script.
  * @param {string} [cwd]
+ * @param {Record<string, string | undefined>} [env]
  * @returns {Promise<number>} código de salida.
  */
-export const main = async (argv, cwd = process.cwd()) => {
-  const [command, ...args] = argv;
-  const has = (flag) => args.includes(flag);
+export const main = async (argv, cwd = process.cwd(), env = process.env) => {
+  const { flag, rest } = takeLang(argv);
+  let t;
+  try {
+    t = texts(resolveLang(flag, env));
+  } catch (error) {
+    if (!(error instanceof LangError)) throw error;
+    // Sin idioma válido, el error sale en los dos.
+    show({ mood: 'error', title: texts('es').badLang(error.source, error.value), lines: [texts('en').badLang(error.source, error.value)] });
+    return 1;
+  }
+
+  const [command, ...args] = rest;
+  const has = (option) => args.includes(option);
   try {
     switch (command) {
       case 'apply': {
         const root = repoRoot(cwd);
         const { changes } = planApply(root, version());
-        return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), verb: 'Aplico' });
+        return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), command, t });
       }
       case 'uninstall': {
         const root = repoRoot(cwd);
         const changes = planUninstall(root);
         if (changes.length === 0) {
-          process.stdout.write('No está instalado en este repo: no hay nada que quitar.\n');
+          show({ mood: 'ok', title: t.changes.notInstalled });
           return 0;
         }
-        return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), verb: 'Quito' });
+        return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), command, t });
       }
       case 'install':
-        process.stderr.write('claude-repo-guard: "install" ahora se llama "apply". Hace lo mismo: instala, actualiza o aplica cambios.\n');
+        show({ mood: 'error', title: t.installRenamed });
         return 1;
       case 'doctor':
-        return doctor({ root: repoRoot(cwd), version: version(), json: has('--json'), machine: !has('--repo') });
+        return doctor({ root: repoRoot(cwd), version: version(), json: has('--json'), machine: !has('--repo'), t });
       case '--version':
       case '-v':
         process.stdout.write(`${version()}\n`);
@@ -68,14 +64,14 @@ export const main = async (argv, cwd = process.cwd()) => {
       case 'help':
       case '--help':
       case '-h':
-        process.stdout.write(HELP);
+        process.stdout.write(t.help);
         return 0;
       default:
-        process.stderr.write(`claude-repo-guard: no conozco el comando "${command}".\n\n${HELP}`);
+        show({ mood: 'error', title: t.unknownCommand(command), next: { label: t.helpNext, command: `${CLI} --help` } });
         return 1;
     }
   } catch (error) {
-    process.stderr.write(`claude-repo-guard: ${error.message}\n`);
+    show({ mood: 'error', title: error instanceof GuardError ? error.in(t) : error.message });
     return 1;
   }
 };

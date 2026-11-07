@@ -1,4 +1,5 @@
 import { readJson } from './files.mjs';
+import { fail } from './texts/index.mjs';
 
 /**
  * Opciones por repo. Viven en `.claude/repo-guard.config.json`, que `apply`
@@ -43,8 +44,6 @@ const KEYS = Object.keys(DEFAULT_CONFIG);
 
 const kind = (value) => (Array.isArray(value) ? 'array' : typeof value);
 
-const KIND_NAMES = { array: 'una lista', string: 'un texto', boolean: 'true o false' };
-
 /**
  * @param {string} file
  * @returns {{ config: Config, exists: boolean }}
@@ -53,17 +52,17 @@ const KIND_NAMES = { array: 'una lista', string: 'un texto', boolean: 'true o fa
 export const readConfig = (file) => {
   const json = readJson(file);
   for (const [key, value] of Object.entries(json.data)) {
-    if (!KEYS.includes(key)) throw new Error(`${file}: no conozco la opción "${key}". Las opciones son: ${KEYS.join(', ')}.`);
+    if (!KEYS.includes(key)) throw fail('unknownOption', file, key, KEYS.join(', '));
     const expected = kind(DEFAULT_CONFIG[key]);
-    if (kind(value) !== expected) throw new Error(`${file}: "${key}" debe ser ${KIND_NAMES[expected]}.`);
+    if (kind(value) !== expected) throw fail('wrongType', file, key, expected);
   }
   if (json.data.docPath !== undefined && !json.data.docPath.endsWith('.md')) {
-    throw new Error(`${file}: "docPath" tiene que terminar en .md.`);
+    throw fail('docPathMd', file);
   }
   for (const key of ['askCommands', 'denyCommands']) {
     const invalid = (json.data[key] ?? []).find((command) => typeof command !== 'string' || command.trim() === '' || /[()]/.test(command));
     if (invalid !== undefined) {
-      throw new Error(`${file}: "${key}" lleva comandos como "git reset --hard", sin paréntesis; no sirve ${JSON.stringify(invalid)}.`);
+      throw fail('commandParens', file, key, JSON.stringify(invalid));
     }
   }
   return { config: { ...DEFAULT_CONFIG, ...json.data }, exists: json.exists };
