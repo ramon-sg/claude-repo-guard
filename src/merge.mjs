@@ -1,3 +1,5 @@
+import { fail } from './texts/index.mjs';
+
 /**
  * Fusión reversible de un fragmento de settings dentro de un objeto JSON.
  *
@@ -56,7 +58,7 @@ export const apply = (target, fragment) => {
           node[key] = {};
           operations.push({ op: 'create', path: here });
         } else if (!isObject(current)) {
-          throw new Error(`"${here.join('.')}" ya existe y no es un objeto.`);
+          throw fail('notObject', here.join('.'));
         }
         walk(node[key], value, here);
       } else if (Array.isArray(value)) {
@@ -64,7 +66,7 @@ export const apply = (target, fragment) => {
           node[key] = [];
           operations.push({ op: 'create', path: here });
         } else if (!Array.isArray(current)) {
-          throw new Error(`"${here.join('.')}" ya existe y no es una lista.`);
+          throw fail('notList', here.join('.'));
         }
         for (const item of value) {
           if (node[key].some((existing) => same(existing, item))) continue;

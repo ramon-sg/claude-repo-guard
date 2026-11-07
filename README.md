@@ -19,11 +19,16 @@ npx github:ramon-sg/claude-repo-guard apply --dry-run     # muestra los cambios
 npx github:ramon-sg/claude-repo-guard apply               # los aplica (pregunta antes)
 npx github:ramon-sg/claude-repo-guard doctor              # revisa que todo coincida
 npx github:ramon-sg/claude-repo-guard uninstall           # deja el repo como estaba
+npx github:ramon-sg/claude-repo-guard apply --lang en     # la terminal en inglés (o CLAUDE_REPO_GUARD_LANG=en)
 ```
 
 `apply` es el único comando para instalar, actualizar y aplicar cambios: deja el repo como dicen la versión que corres y `.claude/repo-guard.config.json`. Correrlo dos veces no cambia nada. Para actualizar, córrelo con la versión nueva (`npx github:ramon-sg/claude-repo-guard#v0.5.0 apply`); no hace falta `uninstall` antes. Hasta la v0.4.1 se llamaba `install`.
 
 Commitea los archivos que agrega: así cada worktree y cada persona del equipo los trae.
+
+**Idioma.** La terminal habla español por defecto. `--lang en`, o la variable `CLAUDE_REPO_GUARD_LANG=en`, la pasa a inglés; `--lang` gana sobre la variable, y `LANG` no se mira. Lo que se escribe en el repo no cambia de idioma (el documento, los settings y el contexto del modo auto), y la salida `doctor --json` sigue en español porque la lee agent-kitchen. Los textos están en `src/texts/es.mjs` y `src/texts/en.mjs`; un test revisa que tengan las mismas claves.
+
+**Kuro.** `apply`, `uninstall` y `doctor` terminan con un bloque junto a Kuro, la mascota de issue-flow: cómo fue y, si hace falta, el comando siguiente. Kuro solo aparece en una terminal, y `NO_COLOR` quita el color.
 
 Corre `apply` y `uninstall` desde tu terminal, no desde una sesión de Claude: una vez instalado, el sandbox no deja que los comandos de Claude escriban `.claude/settings.json`. Eso también rige para la sesión que estaba abierta mientras instalabas, porque Claude relee los settings en vivo.
 

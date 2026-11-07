@@ -7,6 +7,7 @@ import { formatJson, readJson, readText } from './files.mjs';
 import { apply, revert } from './merge.mjs';
 import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
 import { repoPaths, safeRepoFile } from './repo.mjs';
+import { fail } from './texts/index.mjs';
 
 /**
  * Un cambio a un archivo. `after: null` significa borrarlo.
@@ -38,12 +39,12 @@ const CONFIG_FILE = path.join('.claude', 'repo-guard.config.json');
  * @throws {Error} si alguna entrada no es un archivo generado por la herramienta.
  */
 const generatedFiles = (root, files) => {
-  if (!Array.isArray(files)) throw new Error('El manifiesto está dañado: "files" no es una lista.');
+  if (!Array.isArray(files)) throw fail('manifestBroken');
   return files.map((file) => {
     if (file !== AUTO_MODE_FILE && !(typeof file === 'string' && file.endsWith('.md'))) {
-      throw new Error(`El manifiesto pide borrar ${JSON.stringify(file)}, que no es un archivo generado por claude-repo-guard.`);
+      throw fail('manifestForeign', JSON.stringify(file));
     }
-    return safeRepoFile(root, file, 'Un archivo del manifiesto');
+    return safeRepoFile(root, file, '.claude/repo-guard.manifest.json');
   });
 };
 
@@ -139,7 +140,7 @@ export const planApply = (root, version) => {
       const current = pkg.data.scripts[name];
       const ours = owned[name] !== undefined && owned[name] === current;
       if (current !== undefined && current !== value && !ours) {
-        throw new Error(`package.json ya tiene un script "${name}" distinto. Renómbralo o bórralo y vuelve a correr apply.`);
+        throw fail('scriptClash', name);
       }
       if (current === undefined || ours) addedScripts[name] = value;
       pkg.data.scripts[name] = value;

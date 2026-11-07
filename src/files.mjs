@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fail } from './texts/index.mjs';
 
 /**
  * @typedef {{ exists: boolean, data: Record<string, unknown>, indent: string | number, newline: boolean }} JsonFile
@@ -20,7 +21,7 @@ export const readJson = (file) => {
   try {
     data = JSON.parse(text);
   } catch (error) {
-    throw new Error(`${file} no es JSON válido: ${error.message}`);
+    throw fail('invalidJson', file, error.message);
   }
   const indentMatch = text.match(/^[ \t]+(?=")/m);
   return { exists: true, data, indent: indentMatch ? indentMatch[0] : 2, newline: text.endsWith('\n') };
