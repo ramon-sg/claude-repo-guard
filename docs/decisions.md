@@ -2,6 +2,19 @@
 
 Por qué claude-repo-guard hace lo que hace. Una entrada por decisión: qué se decidió, por qué y qué se descartó. La más nueva va primero.
 
+## En npm y en `.agents/runner.json`, sin crear el archivo en repos del modo viejo (#23)
+
+**Qué:** desde la v0.8.0 el guard se publica en npm como `@ramon-sg/claude-repo-guard`, empaquetado con `@ramon-sg/runner` adentro, y anota su versión en `.agents/runner.json`. Con ese archivo, los atajos se escriben con `writeScripts` (que crea `package.json` si falta) y los mensajes muestran `bunx --bun …@<versión>` o `npx --yes …@<versión>`. Sin el archivo pero con el manifiesto de una instalación anterior, el repo queda en el modo de antes. Sin ninguno de los dos, es una instalación nueva y el guard crea `runner.json`.
+
+**Por qué:** agent-kitchen decide el modo de un repo por la existencia de `runner.json` y migra todas las herramientas juntas. Si el guard lo creara en un repo del modo viejo, el repo quedaría a medio migrar: `runner.json` con el guard y las demás herramientas en `devDependencies`.
+
+**Cómo se arma sin escribir antes de confirmar:** `writeRunnerConfig` y `writeScripts` escriben en disco. El guard las corre sobre una copia en un directorio temporal y usa el resultado como el "después" del diff; así `--dry-run` y la confirmación siguen igual.
+
+**Descartado:**
+- Crear `runner.json` siempre que falte, como dice el diseño general: rompe los repos del modo viejo que actualiza agent-kitchen.
+- No crearlo nunca: un guard instalado solo no sabría con qué ejecutor mostrar sus comandos.
+- Reimplementar la escritura de `package.json` en el guard: dos lógicas para el mismo archivo se desalinean.
+
 ## Los comandos internos de git que arman commits piden confirmación (#18)
 
 **Qué:** en todo repo, `git commit-tree`, `git merge-tree`, `git update-ref`, `git hash-object`, `git read-tree` y `git push --no-verify` piden confirmación. Donde nadie contesta (`claude -p`, `--permission-prompts none`), se rechazan. `git commit`, `git merge` y `git push` normales no preguntan.

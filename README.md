@@ -12,17 +12,19 @@ Barandas para correr Claude Code sin preguntas de permisos, instaladas **en cada
 
 ## Instalar
 
-Dentro del repo:
+Dentro del repo, con Bun:
 
 ```bash
-npx github:ramon-sg/claude-repo-guard apply --dry-run     # muestra los cambios
-npx github:ramon-sg/claude-repo-guard apply               # los aplica (pregunta antes)
-npx github:ramon-sg/claude-repo-guard doctor              # revisa que todo coincida
-npx github:ramon-sg/claude-repo-guard uninstall           # deja el repo como estaba
-npx github:ramon-sg/claude-repo-guard apply --lang en     # la terminal en inglés (o CLAUDE_REPO_GUARD_LANG=en)
+bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply --dry-run   # muestra los cambios
+bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply             # los aplica (pregunta antes)
+bunx --bun @ramon-sg/claude-repo-guard@0.8.0 doctor            # revisa que todo coincida
+bunx --bun @ramon-sg/claude-repo-guard@0.8.0 uninstall         # deja el repo como estaba
+bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply --lang en   # la terminal en inglés (o CLAUDE_REPO_GUARD_LANG=en)
 ```
 
-`apply` es el único comando para instalar, actualizar y aplicar cambios: deja el repo como dicen la versión que corres y `.claude/repo-guard.config.json`. Correrlo dos veces no cambia nada. Para actualizar, córrelo con la versión nueva (`npx github:ramon-sg/claude-repo-guard#v0.5.0 apply`); no hace falta `uninstall` antes. Hasta la v0.4.1 se llamaba `install`.
+Con Node es lo mismo con `npx --yes @ramon-sg/claude-repo-guard@0.8.0`. El documento que genera `apply` y los mensajes muestran el comando que corresponde al repo (ver [`.agents/runner.json`](#agentsrunnerjson)).
+
+`apply` es el único comando para instalar, actualizar y aplicar cambios: deja el repo como dicen la versión que corres y `.claude/repo-guard.config.json`. Correrlo dos veces no cambia nada. Para actualizar, córrelo con la versión nueva; no hace falta `uninstall` antes. Hasta la v0.4.1 se llamaba `install`.
 
 Commitea los archivos que agrega: así cada worktree y cada persona del equipo los trae.
 
@@ -53,6 +55,20 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 
 `--settings` tiene más prioridad que los settings del repo, así que apaga el sandbox solo para esa sesión. Si el agente lo ejecuta desde una sesión con sandbox, el proceso hijo hereda el sandbox del sistema operativo: no sirve para escaparse.
 
+## `.agents/runner.json`
+
+Desde la v0.8.0 el guard se publica en npm y anota su versión en `.agents/runner.json`, el archivo que comparten las herramientas de `@ramon-sg` para saber con qué correr cada una (`bun` → `bunx --bun`, `node` → `npx --yes`) y en qué versión exacta. Lo lee y escribe [`@ramon-sg/runner`](https://www.npmjs.com/package/@ramon-sg/runner), que va empaquetada dentro del guard.
+
+| El repo tiene | Qué hace `apply` |
+| --- | --- |
+| `.agents/runner.json` | Pone la entrada `@ramon-sg/claude-repo-guard` en la versión que corres. No toca las demás entradas ni el ejecutor |
+| Solo `.claude/repo-guard.manifest.json` (instalado antes de la v0.8.0) | Sigue en el modo de antes: no crea `runner.json` y los mensajes dicen `npx github:ramon-sg/claude-repo-guard`. Pasar al modo nuevo lo hace agent-kitchen, que migra todas las herramientas juntas |
+| Ninguno de los dos | Crea `runner.json` con `bun` si Bun está instalado. Si no, pregunta si usar Node (sin terminal o con `--yes`, usa Node y avisa) |
+
+Con `runner.json`, los atajos `claude:auto` y `claude:free` van siempre a `package.json`: si no existe, se crea con `private`, `packageManager` (`bun@…` o `npm@…`, según el ejecutor) y los atajos, sin dependencias. Con `bun`, el sandbox abre la caché de Bun (`~/.bun/install/cache`) para que `bunx` funcione. `uninstall` quita la entrada del guard, y borra `runner.json` y `package.json` solo si los creó el guard y no les quedó nada más.
+
+El modo de antes sigue funcionando: `npx github:ramon-sg/claude-repo-guard#v0.8.0 apply` arma el paquete al instalarlo desde GitHub.
+
 ## Qué instala
 
 | Archivo | Qué tiene |
@@ -63,6 +79,7 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 | `docs/development/claude-repo-guard.md` | El documento generado |
 | `.claude/repo-guard.config.json` | Las opciones del repo |
 | `.claude/repo-guard.manifest.json` | Lo que agregó la instalación, para deshacerlo exacto |
+| `.agents/runner.json` | La versión del guard y el ejecutor (ver arriba) |
 
 `uninstall` quita solo lo que agregó `apply`: respeta lo que hayas cambiado o agregado después a mano, y si el archivo vuelve a su contenido original, restaura también su formato.
 
@@ -157,8 +174,8 @@ Para habilitarlo:
 3. **Aplica y revisa:**
 
    ```bash
-   npx github:ramon-sg/claude-repo-guard apply
-   npx github:ramon-sg/claude-repo-guard doctor
+   bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply
+   bunx --bun @ramon-sg/claude-repo-guard@0.8.0 doctor
    ```
 
 4. **Abre una sesión nueva de Claude.** El sandbox se arma al iniciar la sesión, así que una sesión abierta sigue con la configuración vieja.
@@ -247,3 +264,15 @@ Por qué la herramienta hace lo que hace, y qué se descartó: [docs/decisions.m
 
 - Claude Code con sandbox: macOS, o Linux/WSL2 con `bubblewrap` y `socat`. Sin eso, los comandos corren sin sandbox (`doctor` lo avisa). En la nube no hace falta.
 - Node 20 o superior para el instalador.
+
+## Publicar una versión
+
+Una versión es una release `vX.Y.Z` en GitHub, con el mismo número que `version` de `package.json`. Al publicarla, GitHub Actions corre los tests y publica en npm con procedencia (`.github/workflows/publish.yml`). El paquete va empaquetado con esbuild en `dist/` y sin `dependencies`: lo que corre es exactamente lo que se probó.
+
+La primera versión va a mano, porque npm solo deja configurar la publicación desde GitHub en un paquete que ya existe:
+
+1. `npm login` y, desde `main`, `npm publish --access public --provenance=false`.
+2. En npmjs.com, en el paquete, Settings → Trusted publishing: GitHub Actions, repo `ramon-sg/claude-repo-guard`, workflow `publish.yml`.
+3. Pushear la tag de esa versión sin crear una release: una release volvería a publicar la misma versión y fallaría.
+
+Antes de publicar, subir `version` en `package.json` y los ejemplos `@X.Y.Z` de este README.

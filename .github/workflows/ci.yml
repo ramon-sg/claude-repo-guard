@@ -1,4 +1,5 @@
-# Corre los tests en Linux y en macOS, y prueba el CLI sobre un repo vacío.
+# Corre los tests en Linux y en macOS con Node, y en Linux con Bun; prueba el
+# CLI empaquetado sobre un repo vacío.
 name: CI
 on:
   push:
@@ -15,12 +16,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - run: npm ci
       - run: npm test
       - name: apply y uninstall sobre un repo vacío
         run: |
           repo="$(mktemp -d)"
           git -C "$repo" init -q
           cd "$repo"
-          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" apply --yes
-          node "$GITHUB_WORKSPACE/bin/claude-repo-guard.mjs" uninstall --yes
+          node "$GITHUB_WORKSPACE/dist/claude-repo-guard.mjs" apply --yes
+          test -f .agents/runner.json
+          node "$GITHUB_WORKSPACE/dist/claude-repo-guard.mjs" uninstall --yes
           test "$(ls -A "$repo")" = ".git"
+  bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .tool-versions
+      - run: npm ci
+      - run: npm run build
+      - run: bun test --timeout 20000 test/
+      - run: test "$(bun dist/claude-repo-guard.mjs --version)" = "$(node -p 'require("./package.json").version')"
