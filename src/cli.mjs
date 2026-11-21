@@ -7,7 +7,8 @@ import { planApply, planUninstall } from './plan.mjs';
 import { show } from './banner.mjs';
 import { CLI } from './doc.mjs';
 import { LangError, resolveLang, takeLang } from './lang.mjs';
-import { repoRoot } from './repo.mjs';
+import { confirm, repoRoot } from './repo.mjs';
+import { readMode, resolveMode } from './runner-mode.mjs';
 import { GuardError, texts } from './texts/index.mjs';
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,7 +40,14 @@ export const main = async (argv, cwd = process.cwd(), env = process.env) => {
     switch (command) {
       case 'apply': {
         const root = repoRoot(cwd);
-        const { changes } = planApply(root, version());
+        const ask = process.stdin.isTTY && !has('--yes') ? async () => ((await confirm(t.askRunner, t.changes.confirmHint)) ? 'node' : null) : undefined;
+        const mode = await resolveMode(root, { ask });
+        if (mode === null) {
+          show({ mood: 'ok', title: t.runnerDeclined });
+          return 1;
+        }
+        if (mode.kind === 'runner' && mode.warning) process.stderr.write(`${t.noBun}\n`);
+        const { changes } = planApply(root, version(), mode);
         return await applyChanges(changes, { root, dryRun: has('--dry-run'), yes: has('--yes'), command, t });
       }
       case 'uninstall': {
@@ -55,6 +63,7 @@ export const main = async (argv, cwd = process.cwd(), env = process.env) => {
         show({ mood: 'error', title: t.installRenamed });
         return 1;
       case 'doctor':
+        readMode(repoRoot(cwd));
         return doctor({ root: repoRoot(cwd), version: version(), json: has('--json'), machine: !has('--repo'), t });
       case '--version':
       case '-v':

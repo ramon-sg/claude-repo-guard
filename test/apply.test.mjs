@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { main } from '../src/cli.mjs';
+import { usePath } from './fake-bin.mjs';
 
 const ORIGINAL_SETTINGS = `{
   "hooks": {
@@ -36,6 +37,7 @@ const GIT_PLUMBING = [
 
 let root;
 let output;
+let restorePath;
 const realWrite = { out: process.stdout.write, err: process.stderr.write };
 
 const run = (...args) => main(args, root);
@@ -49,6 +51,8 @@ beforeEach(() => {
   fs.mkdirSync(path.join(root, '.claude'));
   fs.writeFileSync(path.join(root, '.claude', 'settings.json'), ORIGINAL_SETTINGS);
   fs.writeFileSync(path.join(root, 'package.json'), ORIGINAL_PACKAGE);
+  // Una máquina sin Bun: el repo nuevo queda con runner node, igual en todas partes.
+  restorePath = usePath({ npm: true });
   output = '';
   process.stdout.write = (chunk) => ((output += chunk), true);
   process.stderr.write = (chunk) => ((output += chunk), true);
@@ -57,6 +61,7 @@ beforeEach(() => {
 afterEach(() => {
   process.stdout.write = realWrite.out;
   process.stderr.write = realWrite.err;
+  restorePath();
   fs.rmSync(root, { recursive: true, force: true });
 });
 

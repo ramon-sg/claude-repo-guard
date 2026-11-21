@@ -31,6 +31,9 @@ Más: https://github.com/ramon-sg/claude-repo-guard
   unknownCommand: (command) => `No conozco el comando "${command}".`,
   helpNext: 'Para ver los comandos:',
   installRenamed: '"install" ahora se llama "apply". Hace lo mismo: instala, actualiza o aplica cambios.',
+  noBun: 'Bun no está instalado: las herramientas correrán con Node (npx). Para cambiarlo, instala Bun y pon "runner": "bun" en .agents/runner.json.',
+  askRunner: 'Bun no está instalado. ¿Uso Node? Si no, sales para instalar Bun.',
+  runnerDeclined: 'No se cambió nada. Instala Bun (https://bun.sh) y vuelve a correr apply.',
   badLang: (source, value) => `${source} acepta es o en, no "${value}".`,
 
   changes: {
@@ -80,6 +83,7 @@ Más: https://github.com/ramon-sg/claude-repo-guard
   },
 
   errors: {
+    runnerFile: (detail) => `.agents/runner.json no sirve: ${detail}`,
     notGitRepo: (cwd) => `${cwd} no está dentro de un repo git.`,
     notRelative: (label, value) => `${label} tiene que ser una ruta relativa dentro del repo, no ${value}.`,
     symlink: (label, relative) => `${label} (${relative}) es un enlace simbólico: no lo toco.`,

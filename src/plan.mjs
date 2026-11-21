@@ -7,6 +7,7 @@ import { formatJson, readJson, readText } from './files.mjs';
 import { apply, revert } from './merge.mjs';
 import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
 import { repoPaths, safeRepoFile } from './repo.mjs';
+import { runnerChange } from './runner-mode.mjs';
 import { fail } from './texts/index.mjs';
 
 /**
@@ -21,6 +22,7 @@ import { fail } from './texts/index.mjs';
  *   settingsOperations: import('./merge.mjs').Operation[],
  *   scripts: Record<string, string>,
  *   createdScripts: boolean,
+ *   createdRunnerFile?: boolean,
  *   files: string[],
  *   originals: { settings: string, packageJson: string },
  * }} Manifest
@@ -105,10 +107,11 @@ const effective = (changes) => changes.filter((change) => change.before !== (cha
  *
  * @param {string} root
  * @param {string} version
+ * @param {import('./runner-mode.mjs').Mode} [mode] sin modo, el viejo.
  * @returns {{ changes: Change[], config: import('./config.mjs').Config }}
  * @throws {Error} si un script del repo choca con uno de la herramienta.
  */
-export const planApply = (root, version) => {
+export const planApply = (root, version, mode = { kind: 'legacy' }) => {
   const { config, exists: configExists } = readConfig(path.join(root, CONFIG_FILE));
   const paths = repoPaths(root, config);
   const previous = readManifest(root);
@@ -156,6 +159,8 @@ export const planApply = (root, version) => {
   changes.push({ file: paths.autoMode, before: readText(paths.autoMode), after: `${JSON.stringify(autoModeSettings(config), null, 2)}\n` });
   changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager }) });
 
+  if (mode.kind === 'runner') changes.push(runnerChange(root, mode, version));
+
   const files = [AUTO_MODE_FILE, config.docPath];
   const current = [paths.autoMode, paths.doc];
   for (const old of previous ? generatedFiles(root, previous.files) : []) {
@@ -170,6 +175,7 @@ export const planApply = (root, version) => {
     settingsOperations,
     scripts: addedScripts,
     createdScripts,
+    createdRunnerFile: previous ? Boolean(previous.createdRunnerFile) : mode.kind === 'runner' && mode.created,
     files,
     originals: previous?.originals ?? { settings: settingsBefore, packageJson: readText(paths.packageJson) },
   };
