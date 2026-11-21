@@ -121,10 +121,11 @@ export const inTemp = (root, files, run) => {
 export const runnerChange = (root, mode, version) => {
   const file = safeRepoFile(root, RUNNER_FILE, RUNNER_FILE);
   const before = readText(file);
-  const after = inTemp(root, [RUNNER_FILE], (dir) => {
-    const current = readConfig(dir) ?? { runner: mode.created ? mode.runner : null, tools: {}, extra: {} };
-    writeRunnerConfig(dir, setTool(current, PACKAGE, version, { allowLower: true }).config);
-  })[RUNNER_FILE];
+  const current = readConfig(root) ?? { runner: mode.created ? mode.runner : null, tools: {}, extra: {} };
+  const { config, changed } = setTool(current, PACKAGE, version, { allowLower: true });
+  // Al día: no se reescribe, para no pisar el formato ni el $schema que dejó otra herramienta.
+  if (!changed && before !== '') return { file, before, after: before };
+  const after = inTemp(root, [RUNNER_FILE], (dir) => writeRunnerConfig(dir, config))[RUNNER_FILE];
   return { file, before, after };
 };
 

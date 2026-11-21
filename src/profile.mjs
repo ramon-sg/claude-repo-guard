@@ -132,10 +132,11 @@ export const autoModeSettings = (config) => {
 };
 
 /**
- * Lo que tienen los dos atajos y ningún script ajeno: con esto `writeScripts`
- * reconoce los suyos para reemplazarlos.
+ * El `owned` de `writeScripts`. No decide qué script es del guard: eso lo
+ * dice el manifiesto, y `planApply` rechaza antes cualquier script ajeno con
+ * el mismo nombre. Para entonces solo quedan atajos ausentes o iguales.
  */
-export const OWNED_MARKER = 'claude --settings';
+export const OWNED_MARKER = AUTO_MODE_FILE;
 
 /**
  * Scripts que se agregan al `package.json` del repo.

@@ -137,22 +137,32 @@ export const planApply = (root, version, mode = { kind: 'legacy' }) => {
     const before = readText(paths.packageJson);
     const owned = previous?.scripts ?? {};
     const pkg = readJson(paths.packageJson);
-    const stale = Object.fromEntries(Object.entries(owned).filter(([name]) => !(name in scripts())));
-    const hadStale = Object.keys(stale).some((name) => pkg.data.scripts?.[name] === stale[name]);
-    removeScripts(pkg.data, stale, false);
-    let clashes = [];
-    const after = inTemp(root, ['package.json'], (dir) => {
-      if (hadStale) fs.writeFileSync(path.join(dir, 'package.json'), formatJson(pkg));
-      clashes = writeScripts(dir, mode.runner, scripts(), OWNED_MARKER).clashes;
-    })['package.json'];
-    if (clashes.length > 0) throw fail('scriptClash', clashes[0]);
-    packageManager = detectPackageManager(paths.packageJson, JSON.parse(after));
-    createdPackageJson = previous ? Boolean(previous.createdPackageJson) : !pkg.exists;
-    createdScripts = previous ? Boolean(previous.createdScripts) : pkg.data.scripts === undefined;
-    for (const [name, value] of Object.entries(scripts())) {
+    const wanted = scripts();
+    // Un script con el mismo nombre es del guard solo si lo registró la
+    // instalación anterior; cualquier otro distinto es del repo y se respeta,
+    // como en el modo viejo.
+    const clash = Object.entries(wanted).find(([name, value]) => {
       const current = pkg.data.scripts?.[name];
-      const ours = owned[name] !== undefined && owned[name] === current;
-      if (current === undefined || ours || current !== value) addedScripts[name] = value;
+      return current !== undefined && current !== value && owned[name] !== current;
+    });
+    if (clash) throw fail('scriptClash', clash[0]);
+    // Los que ya no instala y los suyos desactualizados se sacan de la copia;
+    // writeScripts agrega los de esta versión.
+    const outdated = Object.fromEntries(Object.entries(owned).filter(([name]) => wanted[name] !== owned[name]));
+    const touched = Object.keys(outdated).some((name) => pkg.data.scripts?.[name] === outdated[name]);
+    const scriptsBefore = { ...pkg.data.scripts };
+    removeScripts(pkg.data, outdated, false);
+    const after = inTemp(root, ['package.json'], (dir) => {
+      if (touched) fs.writeFileSync(path.join(dir, 'package.json'), formatJson(pkg));
+      writeScripts(dir, mode.runner, wanted, OWNED_MARKER);
+    })['package.json'];
+    packageManager = detectPackageManager(paths.packageJson, JSON.parse(after));
+    // Una instalación del modo viejo sin package.json no lo registró: si falta ahora, lo crea esta corrida.
+    createdPackageJson = Boolean(previous?.createdPackageJson) || !pkg.exists;
+    createdScripts = Boolean(previous?.createdScripts) || pkg.data.scripts === undefined;
+    for (const [name, value] of Object.entries(wanted)) {
+      const current = scriptsBefore[name];
+      if (current === undefined || owned[name] === current) addedScripts[name] = value;
     }
     changes.push({ file: paths.packageJson, before, after });
   }

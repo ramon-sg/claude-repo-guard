@@ -270,3 +270,33 @@ test('doctor en modo viejo no cambia sus revisiones', async () => {
   const { names } = es.doctor;
   assert.deepEqual(JSON.parse(output).map((item) => item.name), [names.version, names.settings, names.cloud, names.autoMode, names.scripts, names.doc]);
 });
+
+test('de v0.7 sin package.json a runner.json: uninstall borra el package.json que creó el guard', async () => {
+  // Instalación del modo viejo sin package.json; después agent-kitchen crea runner.json.
+  await run('apply', '--yes');
+  fs.rmSync(file('.agents'), { recursive: true });
+  fs.rmSync(file('package.json'));
+  const manifest = json('.claude/repo-guard.manifest.json');
+  delete manifest.createdPackageJson;
+  delete manifest.createdRunnerFile;
+  write('.claude/repo-guard.manifest.json', { ...manifest, scripts: {}, createdScripts: false });
+  write(RUNNER_FILE, { runner: 'bun', tools: { [PKG]: version(), '@ramon-sg/issue-flow': '0.6.0' } });
+  assert.equal(await run('apply', '--yes'), 0, output);
+  assert.ok(exists('package.json'));
+  assert.equal(await run('uninstall', '--yes'), 0, output);
+  assert.equal(exists('package.json'), false);
+});
+
+test('modo runner: un script propio que también usa claude --settings no se pisa', async () => {
+  write('package.json', { scripts: { 'claude:auto': 'claude --settings mio.json --model opus' } });
+  assert.equal(await run('apply', '--yes'), 1);
+  assert.match(output, /claude:auto/);
+  assert.equal(json('package.json').scripts['claude:auto'], 'claude --settings mio.json --model opus');
+});
+
+test('apply no reescribe un runner.json al día escrito por otra versión de la biblioteca', async () => {
+  const other = `{\n    "$schema": "https://cdn.jsdelivr.net/npm/@ramon-sg/runner@1.1.0/runner.schema.json",\n    "tools": { "${PKG}": "${version()}" },\n    "runner": "bun"\n}\n`;
+  write(RUNNER_FILE, other);
+  assert.equal(await run('apply', '--yes'), 0);
+  assert.equal(read(RUNNER_FILE), other);
+});
