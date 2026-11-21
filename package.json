@@ -4,16 +4,17 @@
   "description": "Barandas de Claude Code instaladas en el repo: sandbox acotado al worktree, modo auto sin preguntas y un alias para saltarlas.",
   "type": "module",
   "bin": {
-    "claude-repo-guard": "bin/claude-repo-guard.mjs"
+    "claude-repo-guard": "dist/claude-repo-guard.mjs"
   },
   "files": [
-    "bin",
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test 'test/*.test.mjs'"
+    "build": "node scripts/bundle.mjs",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test 'test/*.test.mjs'"
   },
   "engines": {
     "node": ">=20"
@@ -28,5 +29,9 @@
     "security",
     "worktree"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@ramon-sg/runner": "1.0.0",
+    "esbuild": "0.28.2"
+  }
 }
