@@ -182,3 +182,33 @@ test('doctor en modo runner bun da verde con un package.json sin packageManager'
   output = '';
   assert.equal(await run('doctor', '--repo'), 0, output);
 });
+
+test('uninstall en instalación nueva deja el repo como estaba', async () => {
+  await run('apply', '--yes');
+  assert.equal(await run('uninstall', '--yes'), 0, output);
+  assert.deepEqual(fs.readdirSync(root), ['.git']);
+});
+
+test('uninstall quita solo la entrada del guard de runner.json', async () => {
+  write(RUNNER_FILE, { runner: 'node', tools: { '@ramon-sg/issue-flow': '0.6.0' }, foo: 1 });
+  await run('apply', '--yes');
+  await run('uninstall', '--yes');
+  assert.deepEqual(json(RUNNER_FILE), { $schema: SCHEMA, runner: 'node', tools: { '@ramon-sg/issue-flow': '0.6.0' }, foo: 1 });
+});
+
+test('uninstall no borra runner.json si otra herramienta se agregó después', async () => {
+  await run('apply', '--yes');
+  const config = json(RUNNER_FILE);
+  write(RUNNER_FILE, { ...config, tools: { ...config.tools, '@ramon-sg/issue-flow': '0.6.0' } });
+  await run('uninstall', '--yes');
+  assert.deepEqual(json(RUNNER_FILE).tools, { '@ramon-sg/issue-flow': '0.6.0' });
+});
+
+test('uninstall no borra un package.json que creó el guard si después se le agregó algo', async () => {
+  await run('apply', '--yes');
+  write('package.json', { ...json('package.json'), dependencies: { x: '1.0.0' } });
+  await run('uninstall', '--yes');
+  const pkg = json('package.json');
+  assert.deepEqual(pkg.dependencies, { x: '1.0.0' });
+  assert.equal(pkg.scripts, undefined);
+});

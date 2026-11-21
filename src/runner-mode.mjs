@@ -108,3 +108,22 @@ export const runnerChange = (root, mode, version) => {
   })[RUNNER_FILE];
   return { file, before, after };
 };
+
+/**
+ * El cambio a `runner.json` al desinstalar: quita la entrada del guard. Si el
+ * archivo lo creó el guard y no le queda nada de otro, se borra.
+ *
+ * @param {string} root
+ * @param {boolean} created si lo creó la instalación del guard.
+ * @returns {import('./plan.mjs').Change | null} null si no hay `runner.json`.
+ */
+export const runnerUninstallChange = (root, created) => {
+  const file = safeRepoFile(root, RUNNER_FILE, RUNNER_FILE);
+  const config = readConfig(root);
+  if (config === null) return null;
+  const { [PACKAGE]: _ours, ...tools } = config.tools;
+  const empty = Object.keys(tools).length === 0 && Object.keys(config.extra).length === 0;
+  if (created && empty) return { file, before: readText(file), after: null };
+  const after = inTemp(root, [RUNNER_FILE], (dir) => writeRunnerConfig(dir, { ...config, tools }))[RUNNER_FILE];
+  return { file, before: readText(file), after };
+};

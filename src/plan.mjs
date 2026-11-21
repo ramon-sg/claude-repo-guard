@@ -8,7 +8,7 @@ import { apply, revert } from './merge.mjs';
 import { writeScripts } from '@ramon-sg/runner';
 import { AUTO_MODE_FILE, OWNED_MARKER, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
 import { repoPaths, safeRepoFile } from './repo.mjs';
-import { inTemp, runnerChange } from './runner-mode.mjs';
+import { inTemp, runnerChange, runnerUninstallChange } from './runner-mode.mjs';
 import { fail } from './texts/index.mjs';
 
 /**
@@ -245,8 +245,14 @@ export const planUninstall = (root) => {
     const pkg = readJson(paths.packageJson);
     const before = readText(paths.packageJson);
     removeScripts(pkg.data, previous.scripts, Boolean(previous.createdScripts));
-    changes.push({ file: paths.packageJson, before, after: restoreFormat(pkg, previous.originals?.packageJson) });
+    // Un package.json que creó el guard solo para los atajos se va con ellos.
+    const onlyOurs = Object.keys(pkg.data).every((key) => key === 'private' || key === 'packageManager');
+    const after = previous.createdPackageJson && onlyOurs ? null : restoreFormat(pkg, previous.originals?.packageJson);
+    changes.push({ file: paths.packageJson, before, after });
   }
+
+  const runnerFile = runnerUninstallChange(root, Boolean(previous.createdRunnerFile));
+  if (runnerFile) changes.push(runnerFile);
 
   for (const file of generatedFiles(root, previous.files)) changes.push({ file, before: readText(file), after: null });
   if (previous.createdConfig) changes.push({ file: paths.config, before: readText(paths.config), after: null });
