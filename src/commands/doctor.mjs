@@ -7,6 +7,7 @@ import { missing } from '../merge.mjs';
 import { detectPackageManager } from '../package-manager.mjs';
 import { FORBIDDEN_SANDBOX_KEYS, autoModeSettings, scripts, settingsFragment } from '../profile.mjs';
 import { repoPaths } from '../repo.mjs';
+import { readMode } from '../runner-mode.mjs';
 import { show } from '../banner.mjs';
 import { es } from '../texts/es.mjs';
 
@@ -39,6 +40,8 @@ export const runChecks = (root, version, { machine, t = es }) => {
   const { names, ...say } = t.doctor;
   const { config } = readConfig(path.join(root, '.claude', 'repo-guard.config.json'));
   const paths = repoPaths(root, config);
+  const mode = readMode(root);
+  const runner = mode.kind === 'runner' ? mode.runner : undefined;
   /** @type {Check[]} */
   const checks = [];
 
@@ -54,7 +57,7 @@ export const runChecks = (root, version, { machine, t = es }) => {
 
   const settings = readJson(paths.settings).data;
   const packageManager = detectPackageManager(paths.packageJson);
-  const gaps = missing(settings, settingsFragment(config, packageManager));
+  const gaps = missing(settings, settingsFragment(config, packageManager, runner));
   checks.push({
     ok: gaps.length === 0,
     name: names.settings,
@@ -81,7 +84,7 @@ export const runChecks = (root, version, { machine, t = es }) => {
     checks.push({ ok: wrong.length === 0, name: names.scripts, detail: wrong.length === 0 ? say.scriptsOk : say.changed(wrong.join(', ')) });
   }
 
-  const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager });
+  const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager, runner });
   checks.push({ ok: docOk, name: names.doc, detail: docOk ? config.docPath : say.docChanged(config.docPath) });
 
   if (!machine) return checks;

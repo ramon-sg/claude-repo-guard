@@ -9,9 +9,11 @@ import { main } from '../src/cli.mjs';
 import { resolveLang, takeLang } from '../src/lang.mjs';
 import { en } from '../src/texts/en.mjs';
 import { es } from '../src/texts/es.mjs';
+import { usePath } from './fake-bin.mjs';
 
 let root;
 let output;
+let restorePath;
 const realWrite = { out: process.stdout.write, err: process.stderr.write };
 const run = (args, env = {}) => main(args, root, env);
 
@@ -19,6 +21,7 @@ beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-guard-lang-'));
   execFileSync('git', ['init', '-q'], { cwd: root });
   fs.writeFileSync(path.join(root, 'package.json'), '{ "name": "demo" }\n');
+  restorePath = usePath({ npm: true });
   output = '';
   process.stdout.write = (chunk) => ((output += chunk), true);
   process.stderr.write = (chunk) => ((output += chunk), true);
@@ -27,6 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   process.stdout.write = realWrite.out;
   process.stderr.write = realWrite.err;
+  restorePath();
   fs.rmSync(root, { recursive: true, force: true });
 });
 

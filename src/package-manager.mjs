@@ -16,11 +16,12 @@ const LOCKFILES = /** @type {const} */ ([
  * (yarn) cae en npm: `npm run` corre los scripts igual.
  *
  * @param {string} packageJson ruta de `package.json`.
+ * @param {Record<string, unknown>} [data] su contenido, si es el que esta corrida va a escribir.
  * @returns {PackageManager | null} `null` si el repo no tiene `package.json`.
  */
-export const detectPackageManager = (packageJson) => {
-  if (!fs.existsSync(packageJson)) return null;
-  const declared = readJson(packageJson).data.packageManager;
+export const detectPackageManager = (packageJson, data) => {
+  if (!data && !fs.existsSync(packageJson)) return null;
+  const declared = (data ?? readJson(packageJson).data).packageManager;
   const name = typeof declared === 'string' ? declared.split('@')[0] : '';
   if (name === 'pnpm' || name === 'bun') return name;
   if (name) return 'npm';

@@ -5,9 +5,10 @@ import { renderDoc } from './doc.mjs';
 import { detectPackageManager } from './package-manager.mjs';
 import { formatJson, readJson, readText } from './files.mjs';
 import { apply, revert } from './merge.mjs';
-import { AUTO_MODE_FILE, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
+import { writeScripts } from '@ramon-sg/runner';
+import { AUTO_MODE_FILE, OWNED_MARKER, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
 import { repoPaths, safeRepoFile } from './repo.mjs';
-import { runnerChange } from './runner-mode.mjs';
+import { inTemp, runnerChange } from './runner-mode.mjs';
 import { fail } from './texts/index.mjs';
 
 /**
@@ -23,6 +24,7 @@ import { fail } from './texts/index.mjs';
  *   scripts: Record<string, string>,
  *   createdScripts: boolean,
  *   createdRunnerFile?: boolean,
+ *   createdPackageJson?: boolean,
  *   files: string[],
  *   originals: { settings: string, packageJson: string },
  * }} Manifest
@@ -120,16 +122,44 @@ export const planApply = (root, version, mode = { kind: 'legacy' }) => {
   const settingsBefore = readText(paths.settings);
   if (previous) revert(settings.data, previous.settingsOperations);
   const createdSettings = previous ? previous.createdSettings : !settings.exists;
-  const packageManager = detectPackageManager(paths.packageJson);
-  const settingsOperations = apply(settings.data, settingsFragment(config, packageManager));
+  const runner = mode.kind === 'runner' ? mode.runner : undefined;
 
   /** @type {Change[]} */
-  const changes = [{ file: paths.settings, before: settingsBefore, after: formatJson(settings) }];
-
-  const hasPackageJson = packageManager !== null;
+  const changes = [];
   /** @type {Record<string, string>} */
   const addedScripts = {};
   let createdScripts = false;
+  let createdPackageJson = Boolean(previous?.createdPackageJson);
+  let packageManager = detectPackageManager(paths.packageJson);
+  if (mode.kind === 'runner') {
+    // La biblioteca escribe los atajos (y crea package.json con packageManager
+    // si falta) sobre una copia: el repo no se toca hasta confirmar.
+    const before = readText(paths.packageJson);
+    const owned = previous?.scripts ?? {};
+    const pkg = readJson(paths.packageJson);
+    const stale = Object.fromEntries(Object.entries(owned).filter(([name]) => !(name in scripts())));
+    const hadStale = Object.keys(stale).some((name) => pkg.data.scripts?.[name] === stale[name]);
+    removeScripts(pkg.data, stale, false);
+    let clashes = [];
+    const after = inTemp(root, ['package.json'], (dir) => {
+      if (hadStale) fs.writeFileSync(path.join(dir, 'package.json'), formatJson(pkg));
+      clashes = writeScripts(dir, mode.runner, scripts(), OWNED_MARKER).clashes;
+    })['package.json'];
+    if (clashes.length > 0) throw fail('scriptClash', clashes[0]);
+    packageManager = detectPackageManager(paths.packageJson, JSON.parse(after));
+    createdPackageJson = previous ? Boolean(previous.createdPackageJson) : !pkg.exists;
+    createdScripts = previous ? Boolean(previous.createdScripts) : pkg.data.scripts === undefined;
+    for (const [name, value] of Object.entries(scripts())) {
+      const current = pkg.data.scripts?.[name];
+      const ours = owned[name] !== undefined && owned[name] === current;
+      if (current === undefined || ours || current !== value) addedScripts[name] = value;
+    }
+    changes.push({ file: paths.packageJson, before, after });
+  }
+  const settingsOperations = apply(settings.data, settingsFragment(config, packageManager, runner));
+  changes.unshift({ file: paths.settings, before: settingsBefore, after: formatJson(settings) });
+
+  const hasPackageJson = mode.kind === 'legacy' && packageManager !== null;
   if (hasPackageJson) {
     const pkg = readJson(paths.packageJson);
     const before = readText(paths.packageJson);
@@ -157,7 +187,7 @@ export const planApply = (root, version, mode = { kind: 'legacy' }) => {
   }
 
   changes.push({ file: paths.autoMode, before: readText(paths.autoMode), after: `${JSON.stringify(autoModeSettings(config), null, 2)}\n` });
-  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager }) });
+  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager, runner }) });
 
   if (mode.kind === 'runner') changes.push(runnerChange(root, mode, version));
 
@@ -175,6 +205,7 @@ export const planApply = (root, version, mode = { kind: 'legacy' }) => {
     settingsOperations,
     scripts: addedScripts,
     createdScripts,
+    createdPackageJson,
     createdRunnerFile: previous ? Boolean(previous.createdRunnerFile) : mode.kind === 'runner' && mode.created,
     files,
     originals: previous?.originals ?? { settings: settingsBefore, packageJson: readText(paths.packageJson) },

@@ -6,8 +6,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, test } from 'node:test';
 import { VERSION as RUNNER_VERSION } from '@ramon-sg/runner';
 import { main, version } from '../src/cli.mjs';
+import { BUN_CACHE, scripts } from '../src/profile.mjs';
 import { es } from '../src/texts/es.mjs';
-import { usePath } from './fake-bin.mjs';
+import { FAKE_VERSIONS, usePath } from './fake-bin.mjs';
 
 const PKG = '@ramon-sg/claude-repo-guard';
 const RUNNER_FILE = '.agents/runner.json';
@@ -106,4 +107,78 @@ test('--dry-run en modo runner no escribe runner.json', async () => {
   assert.equal(await run('apply', '--dry-run'), 0);
   assert.equal(exists(RUNNER_FILE), false);
   assert.match(output, /\.agents\/runner\.json \(nuevo\)/);
+});
+
+test('modo runner sin package.json: lo crea con private, packageManager y los atajos', async () => {
+  assert.equal(await run('apply', '--yes'), 0);
+  assert.deepEqual(json('package.json'), { private: true, packageManager: `bun@${FAKE_VERSIONS.bun}`, scripts: scripts() });
+});
+
+test('modo runner sin package.json: el documento dice bun run en la misma corrida', async () => {
+  await run('apply', '--yes');
+  assert.match(doc(), /`bun run claude:auto`/);
+});
+
+test('modo runner node sin package.json: packageManager npm y el documento dice npm run', async () => {
+  machine({ npm: true });
+  await run('apply', '--yes');
+  assert.equal(json('package.json').packageManager, `npm@${FAKE_VERSIONS.npm}`);
+  assert.match(doc(), /`npm run claude:auto`/);
+});
+
+test('modo runner con package.json: no toca otros scripts ni dependencias', async () => {
+  write('package.json', { name: 'demo', scripts: { test: 'node --test' }, dependencies: { x: '1.0.0' } });
+  await run('apply', '--yes');
+  const pkg = json('package.json');
+  assert.equal(pkg.scripts.test, 'node --test');
+  assert.deepEqual(pkg.dependencies, { x: '1.0.0' });
+  assert.equal(pkg.packageManager, undefined);
+  assert.equal(pkg.scripts['claude:auto'], scripts()['claude:auto']);
+});
+
+test('modo runner: un script ajeno con el mismo nombre falla y no escribe nada', async () => {
+  write('package.json', { scripts: { 'claude:auto': 'otra cosa' } });
+  assert.equal(await run('apply', '--yes'), 1);
+  assert.match(output, /claude:auto/);
+  assert.equal(exists(RUNNER_FILE), false);
+  assert.equal(json('package.json').scripts['claude:auto'], 'otra cosa');
+});
+
+test('modo runner con bun abre la caché de bun aunque el repo no tenga bun.lock', async () => {
+  await run('apply', '--yes');
+  assert.ok(json('.claude/settings.json').sandbox.filesystem.allowWrite.includes(BUN_CACHE));
+  assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta para que `bun install` y `bunx` funcionen/);
+  assert.equal(await run('doctor', '--repo'), 0, output);
+});
+
+test('modo runner con node no abre la caché de bun', async () => {
+  machine({ npm: true });
+  await run('apply', '--yes');
+  assert.ok(!json('.claude/settings.json').sandbox.filesystem.allowWrite.includes(BUN_CACHE));
+});
+
+test('--dry-run en modo runner no crea package.json y no deja temporales', async () => {
+  const temps = () => fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('repo-guard-')).length;
+  const before = temps();
+  assert.equal(await run('apply', '--dry-run'), 0);
+  assert.equal(exists('package.json'), false);
+  assert.match(output, /package\.json \(nuevo\)/);
+  assert.equal(temps(), before);
+});
+
+test('modo viejo sin package.json sigue sin crearlo', async () => {
+  await run('apply', '--yes');
+  fs.rmSync(file('.agents'), { recursive: true });
+  fs.rmSync(file('package.json'));
+  const manifest = json('.claude/repo-guard.manifest.json');
+  write('.claude/repo-guard.manifest.json', { ...manifest, scripts: {}, createdScripts: false });
+  assert.equal(await run('apply', '--yes'), 0);
+  assert.equal(exists('package.json'), false);
+});
+
+test('doctor en modo runner bun da verde con un package.json sin packageManager', async () => {
+  write('package.json', { name: 'demo' });
+  await run('apply', '--yes');
+  output = '';
+  assert.equal(await run('doctor', '--repo'), 0, output);
 });

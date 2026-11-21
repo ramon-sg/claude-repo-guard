@@ -13,11 +13,11 @@ const json = (value) => ['```json', JSON.stringify(value, null, 2), '```'].join(
  * el mismo perfil que los settings: si cambian las reglas, cambia el documento.
  *
  * @param {import('./config.mjs').Config} config
- * @param {{ version: string, packageManager: import('./package-manager.mjs').PackageManager | null }} context
+ * @param {{ version: string, packageManager: import('./package-manager.mjs').PackageManager | null, runner?: 'bun' | 'node' }} context
  * @returns {string} el markdown completo.
  */
-export const renderDoc = (config, { version, packageManager }) => {
-  const fragment = settingsFragment(config, packageManager);
+export const renderDoc = (config, { version, packageManager, runner }) => {
+  const fragment = settingsFragment(config, packageManager, runner);
   const hasPackageJson = packageManager !== null;
   const ownAsk = config.askCommands.filter((command) => !GIT_PLUMBING_COMMANDS.includes(command));
   const run = (name) => (packageManager ? runScript(packageManager, name) : scripts()[name]);
@@ -130,11 +130,11 @@ export const renderDoc = (config, { version, packageManager }) => {
     config.npmCache
       ? `- La caché de npm (${NPM_CACHE.map(code).join(' y ')}) está abierta para que ${code('npx')} corra paquetes que no están en el repo. La comparten todos tus repos: un comando de Claude podría alterar un paquete guardado, y otro repo lo correría así fuera del sandbox. Para cerrarla, pon ${code('"npmCache": false')} en ${code('.claude/repo-guard.config.json')}.`
       : `- ${code('npx')} de un paquete que no está en el repo no funciona dentro del sandbox: la caché de npm está cerrada (${code('"npmCache": false')}). Córrelo fuera de Claude o agrega el paquete al repo.`,
-    ...(packageManager === 'bun'
+    ...(packageManager === 'bun' || runner === 'bun'
       ? [
           config.bunCache
-            ? `- La caché de bun (${code(BUN_CACHE)}) está abierta para que ${code('bun install')} funcione dentro del sandbox. La comparten todos tus repos: un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Para cerrarla, pon ${code('"bunCache": false')} en ${code('.claude/repo-guard.config.json')}.`
-            : `- ${code('bun install')} no funciona dentro del sandbox: la caché de bun está cerrada (${code('"bunCache": false')}). Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`,
+            ? `- La caché de bun (${code(BUN_CACHE)}) está abierta para que ${code('bun install')} y ${code('bunx')} funcionen dentro del sandbox. La comparten todos tus repos: un comando de Claude podría alterar un paquete guardado, y otro repo lo instalaría así fuera del sandbox. Para cerrarla, pon ${code('"bunCache": false')} en ${code('.claude/repo-guard.config.json')}.`
+            : `- ${code('bun install')} y ${code('bunx')} no funcionan dentro del sandbox: la caché de bun está cerrada (${code('"bunCache": false')}). Instala dependencias fuera de Claude (o desde un hook, que corre fuera del sandbox).`,
         ]
       : []),
     `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,

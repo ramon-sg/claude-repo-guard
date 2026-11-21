@@ -149,7 +149,7 @@ test('bunCache: false cierra la caché de bun y el documento dice que bun instal
   fs.writeFileSync(path.join(root, '.claude', 'repo-guard.config.json'), JSON.stringify({ bunCache: false }));
   await run('apply', '--yes');
   assert.deepEqual(json('.claude/settings.json').sandbox.filesystem.allowWrite, ['/private/var/folders', ...NPM_CACHE]);
-  assert.match(doc(), /`bun install` no funciona dentro del sandbox/);
+  assert.match(doc(), /`bun install` y `bunx` no funcionan dentro del sandbox/);
   assert.equal(await run('doctor', '--repo'), 0);
 });
 

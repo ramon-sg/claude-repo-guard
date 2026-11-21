@@ -73,13 +73,14 @@ export const FORBIDDEN_SANDBOX_KEYS = ['failIfUnavailable'];
 /**
  * @param {import('./config.mjs').Config} config
  * @param {import('./package-manager.mjs').PackageManager | null} packageManager
+ * @param {'bun' | 'node'} [runner] el de `.agents/runner.json`: con bun, `bunx` baja las herramientas a la caché de bun.
  * @returns {Record<string, unknown>} lo que se fusiona en `.claude/settings.json`.
  */
-export const settingsFragment = (config, packageManager) => {
+export const settingsFragment = (config, packageManager, runner) => {
   const base = [
     ...BASE_ALLOW_WRITE,
     ...(config.npmCache ? NPM_CACHE : []),
-    ...(packageManager === 'bun' && config.bunCache ? [BUN_CACHE] : []),
+    ...((packageManager === 'bun' || runner === 'bun') && config.bunCache ? [BUN_CACHE] : []),
   ];
   const sandbox = {
     enabled: true,
@@ -129,6 +130,12 @@ export const autoModeSettings = (config) => {
     },
   };
 };
+
+/**
+ * Lo que tienen los dos atajos y ningún script ajeno: con esto `writeScripts`
+ * reconoce los suyos para reemplazarlos.
+ */
+export const OWNED_MARKER = 'claude --settings';
 
 /**
  * Scripts que se agregan al `package.json` del repo.
