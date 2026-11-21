@@ -165,7 +165,9 @@ test('--dry-run en modo runner no crea package.json y no deja temporales', async
   try {
     assert.equal(await run('apply', '--dry-run'), 0);
   } finally {
-    process.env.TMPDIR = original;
+    // Asignar undefined deja el texto "undefined" (en Linux TMPDIR no suele existir).
+    if (original === undefined) delete process.env.TMPDIR;
+    else process.env.TMPDIR = original;
   }
   assert.equal(exists('package.json'), false);
   assert.match(output, /package\.json \(nuevo\)/);
