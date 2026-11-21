@@ -8,7 +8,7 @@ import { apply, revert } from './merge.mjs';
 import { writeScripts } from '@ramon-sg/runner';
 import { AUTO_MODE_FILE, OWNED_MARKER, autoModeSettings, scripts, settingsFragment } from './profile.mjs';
 import { repoPaths, safeRepoFile } from './repo.mjs';
-import { inTemp, runnerChange, runnerUninstallChange } from './runner-mode.mjs';
+import { cliText, inTemp, runnerChange, runnerUninstallChange } from './runner-mode.mjs';
 import { fail } from './texts/index.mjs';
 
 /**
@@ -187,7 +187,7 @@ export const planApply = (root, version, mode = { kind: 'legacy' }) => {
   }
 
   changes.push({ file: paths.autoMode, before: readText(paths.autoMode), after: `${JSON.stringify(autoModeSettings(config), null, 2)}\n` });
-  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager, runner }) });
+  changes.push({ file: paths.doc, before: readText(paths.doc), after: renderDoc(config, { version, packageManager, runner, cli: cliText(mode, version) }) });
 
   if (mode.kind === 'runner') changes.push(runnerChange(root, mode, version));
 

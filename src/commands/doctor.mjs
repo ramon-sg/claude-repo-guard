@@ -7,7 +7,8 @@ import { missing } from '../merge.mjs';
 import { detectPackageManager } from '../package-manager.mjs';
 import { FORBIDDEN_SANDBOX_KEYS, autoModeSettings, scripts, settingsFragment } from '../profile.mjs';
 import { repoPaths } from '../repo.mjs';
-import { readMode } from '../runner-mode.mjs';
+import { checkRunner } from '@ramon-sg/runner';
+import { PACKAGE, cliText, pinnedVersion, readMode } from '../runner-mode.mjs';
 import { show } from '../banner.mjs';
 import { es } from '../texts/es.mjs';
 
@@ -49,11 +50,22 @@ export const runChecks = (root, version, { machine, t = es }) => {
   if (!manifest.exists) {
     return [{ ok: false, name: names.install, detail: say.notInstalled }];
   }
-  checks.push({
-    ok: manifest.data.version === version,
-    name: names.version,
-    detail: manifest.data.version === version ? `v${version}` : say.versionBehind(manifest.data.version, version, CLI),
-  });
+  if (mode.kind === 'runner') {
+    const pinned = pinnedVersion(root);
+    checks.push({
+      ok: pinned === version,
+      name: names.version,
+      detail: pinned === version ? `v${version}` : say.runnerBehind(pinned ?? '—', version, cliText(mode, version)),
+    });
+    // Sin runner.json la biblioteca da `warn`; acá ya se sabe que existe.
+    for (const check of checkRunner(root)) checks.push({ ok: check.status !== 'fail', name: names.runner, detail: check.detail });
+  } else {
+    checks.push({
+      ok: manifest.data.version === version,
+      name: names.version,
+      detail: manifest.data.version === version ? `v${version}` : say.versionBehind(manifest.data.version, version, CLI),
+    });
+  }
 
   const settings = readJson(paths.settings).data;
   const packageManager = detectPackageManager(paths.packageJson);
@@ -84,7 +96,7 @@ export const runChecks = (root, version, { machine, t = es }) => {
     checks.push({ ok: wrong.length === 0, name: names.scripts, detail: wrong.length === 0 ? say.scriptsOk : say.changed(wrong.join(', ')) });
   }
 
-  const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager, runner });
+  const docOk = readText(paths.doc) === renderDoc(config, { version, packageManager, runner, cli: cliText(mode, version) });
   checks.push({ ok: docOk, name: names.doc, detail: docOk ? config.docPath : say.docChanged(config.docPath) });
 
   if (!machine) return checks;

@@ -89,7 +89,7 @@ test('apply y doctor salen enteros en inglés con --lang en, y con la variable',
   assert.equal(await run(['apply', '--dry-run', '--lang', 'en']), 0);
   assert.match(output, /\(new\)/);
   assert.match(output, /\[ok\] --dry-run mode: nothing was written\./);
-  assert.match(output, /claude-repo-guard apply --yes/);
+  assert.match(output, /claude-repo-guard@[\d.]+ apply --yes/);
   output = '';
   assert.equal(await run(['apply', '--yes'], { CLAUDE_REPO_GUARD_LANG: 'en' }), 0);
   assert.match(output, /\[ok\] Done: \d+ files\./);

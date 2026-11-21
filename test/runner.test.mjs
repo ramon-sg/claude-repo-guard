@@ -158,12 +158,19 @@ test('modo runner con node no abre la caché de bun', async () => {
 });
 
 test('--dry-run en modo runner no crea package.json y no deja temporales', async () => {
-  const temps = () => fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('repo-guard-')).length;
-  const before = temps();
-  assert.equal(await run('apply', '--dry-run'), 0);
+  // Un TMPDIR propio: los otros archivos de test corren en paralelo.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tmpdir-'));
+  const original = process.env.TMPDIR;
+  process.env.TMPDIR = tmp;
+  try {
+    assert.equal(await run('apply', '--dry-run'), 0);
+  } finally {
+    process.env.TMPDIR = original;
+  }
   assert.equal(exists('package.json'), false);
   assert.match(output, /package\.json \(nuevo\)/);
-  assert.equal(temps(), before);
+  assert.deepEqual(fs.readdirSync(tmp), []);
+  fs.rmSync(tmp, { recursive: true });
 });
 
 test('modo viejo sin package.json sigue sin crearlo', async () => {
@@ -211,4 +218,55 @@ test('uninstall no borra un package.json que creó el guard si después se le ag
   const pkg = json('package.json');
   assert.deepEqual(pkg.dependencies, { x: '1.0.0' });
   assert.equal(pkg.scripts, undefined);
+});
+
+test('modo runner bun: el documento y el --dry-run dicen bunx --bun con la versión', async () => {
+  await run('apply', '--dry-run');
+  assert.match(output, new RegExp(`bunx --bun ${PKG}@${version()} apply --yes`));
+  await run('apply', '--yes');
+  assert.ok(doc().includes(`bunx --bun ${PKG}@${version()} apply`));
+  assert.doesNotMatch(doc(), /github:/);
+});
+
+test('modo runner node: el documento dice npx --yes con la versión', async () => {
+  machine({ npm: true });
+  await run('apply', '--yes');
+  assert.ok(doc().includes(`npx --yes ${PKG}@${version()} uninstall`));
+  assert.doesNotMatch(doc(), /github:/);
+});
+
+test('doctor en modo runner da verde tras apply', async () => {
+  await run('apply', '--yes');
+  output = '';
+  assert.equal(await run('doctor', '--repo'), 0, output);
+});
+
+test('doctor en modo runner marca la entrada de runner.json distinta de la que corre', async () => {
+  await run('apply', '--yes');
+  write(RUNNER_FILE, { ...json(RUNNER_FILE), tools: { [PKG]: '0.0.1' } });
+  output = '';
+  assert.equal(await run('doctor', '--repo', '--json'), 1);
+  const check = JSON.parse(output).find((item) => item.name === es.doctor.names.version);
+  assert.equal(check.ok, false);
+  assert.ok(check.detail.includes('0.0.1'), check.detail);
+  assert.ok(check.detail.includes(`bunx --bun ${PKG}@${version()} apply`), check.detail);
+});
+
+test('doctor en modo runner marca el ejecutor que falta', async () => {
+  await run('apply', '--yes');
+  machine({ npm: true });
+  output = '';
+  assert.equal(await run('doctor', '--repo', '--json'), 1);
+  const check = JSON.parse(output).find((item) => item.name === es.doctor.names.runner);
+  assert.equal(check.ok, false, JSON.stringify(check));
+});
+
+test('doctor en modo viejo no cambia sus revisiones', async () => {
+  await run('apply', '--yes');
+  fs.rmSync(file('.agents'), { recursive: true });
+  await run('apply', '--yes');
+  output = '';
+  assert.equal(await run('doctor', '--repo', '--json'), 0, output);
+  const { names } = es.doctor;
+  assert.deepEqual(JSON.parse(output).map((item) => item.name), [names.version, names.settings, names.cloud, names.autoMode, names.scripts, names.doc]);
 });

@@ -13,10 +13,10 @@ const json = (value) => ['```json', JSON.stringify(value, null, 2), '```'].join(
  * el mismo perfil que los settings: si cambian las reglas, cambia el documento.
  *
  * @param {import('./config.mjs').Config} config
- * @param {{ version: string, packageManager: import('./package-manager.mjs').PackageManager | null, runner?: 'bun' | 'node' }} context
+ * @param {{ version: string, packageManager: import('./package-manager.mjs').PackageManager | null, runner?: 'bun' | 'node', cli?: string }} context
  * @returns {string} el markdown completo.
  */
-export const renderDoc = (config, { version, packageManager, runner }) => {
+export const renderDoc = (config, { version, packageManager, runner, cli = CLI }) => {
   const fragment = settingsFragment(config, packageManager, runner);
   const hasPackageJson = packageManager !== null;
   const ownAsk = config.askCommands.filter((command) => !GIT_PLUMBING_COMMANDS.includes(command));
@@ -24,7 +24,7 @@ export const renderDoc = (config, { version, packageManager, runner }) => {
   const lines = [
     '# Barandas de Claude Code en este repo',
     '',
-    `> Generado por [claude-repo-guard](https://github.com/ramon-sg/claude-repo-guard) v${version}. No lo edites a mano: cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} apply`)}.`,
+    `> Generado por [claude-repo-guard](https://github.com/ramon-sg/claude-repo-guard) v${version}. No lo edites a mano: cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${cli} apply`)}.`,
     '',
     '## En simple',
     '',
@@ -117,8 +117,8 @@ export const renderDoc = (config, { version, packageManager, runner }) => {
     '',
     `- **Una sesión:** ${code(run('claude:free'))}.`,
     `- **Siempre, solo en tu máquina:** pon ${code('{"sandbox": {"enabled": false}}')} en ${code('.claude/settings.local.json')}, que tiene más prioridad que el del repo. Agrégalo a ${code('.gitignore')} si no está.`,
-    `- **Una regla puntual:** cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${CLI} apply`)}.`,
-    `- **Todo:** ${code(`${CLI} uninstall`)} deja el repo como estaba. Respeta lo que hayas agregado después a mano.`,
+    `- **Una regla puntual:** cambia ${code('.claude/repo-guard.config.json')} y vuelve a correr ${code(`${cli} apply`)}.`,
+    `- **Todo:** ${code(`${cli} uninstall`)} deja el repo como estaba. Respeta lo que hayas agregado después a mano.`,
     '',
     'Las listas `deny` se suman entre niveles de settings: no se pueden quitar desde `--settings` ni desde `settings.local.json`, solo desde la configuración de este repo.',
     '',
@@ -138,7 +138,7 @@ export const renderDoc = (config, { version, packageManager, runner }) => {
         ]
       : []),
     `- En macOS, ${code('ps')} y ${code('pgrep')} no corren dentro del sandbox: no deja listar procesos. Un test que los use falla; que el proceso anote su ${code('$PPID')} o su ${code('$$')} en un archivo da el mismo dato.`,
-    `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${CLI} apply`)} se corre desde tu terminal, no desde una sesión de Claude.`,
+    `- Dentro del sandbox, Claude no puede escribir ${code('.claude/settings.json')}: ${code(`${cli} apply`)} se corre desde tu terminal, no desde una sesión de Claude.`,
     `- Git tampoco puede, porque Claude Code protege esas rutas: un ${code('git merge')}, ${code('git pull')} o ${code('git switch')} que cambia ${code('.agents/skills/')}, ${code('.claude/skills')} o ${code('.claude/settings.json')} falla con ${code('Operation not permitted')} y queda a medias. Esos merges se hacen desde tu terminal.`,
     `- En macOS, ${code('gh')} falla la verificación TLS dentro del sandbox salvo que actives ${code('weakerNetworkIsolation')} en la configuración.`,
     '- El sandbox no cubre las credenciales que se pueden leer en tu home: limítalas con los permisos de cada aplicación.',
@@ -148,7 +148,7 @@ export const renderDoc = (config, { version, packageManager, runner }) => {
     '',
     '## Revisar',
     '',
-    `${code(`${CLI} doctor`)} revisa que los settings, los scripts y este documento coincidan con la configuración.`,
+    `${code(`${cli} doctor`)} revisa que los settings, los scripts y este documento coincidan con la configuración.`,
     '',
   ];
   return lines.join('\n');

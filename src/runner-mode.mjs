@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { RUNNER_FILE, RunnerFileError, chooseRunner, effectiveRunner, readRunnerConfig, setTool, writeRunnerConfig } from '@ramon-sg/runner';
+import { RUNNER_FILE, RunnerFileError, chooseRunner, effectiveRunner, readRunnerConfig, setTool, toolCommandText, writeRunnerConfig } from '@ramon-sg/runner';
+import { CLI } from './doc.mjs';
 import { readText } from './files.mjs';
 import { safeRepoFile } from './repo.mjs';
 import { fail } from './texts/index.mjs';
@@ -31,6 +32,24 @@ const readConfig = (root) => {
     throw error;
   }
 };
+
+/**
+ * Cómo se corre esta versión del guard en el repo, para los mensajes y el
+ * documento: en modo runner, el comando de `runner.json` con la versión.
+ *
+ * @param {Mode} mode
+ * @param {string} version
+ * @returns {string}
+ */
+export const cliText = (mode, version) => (mode.kind === 'runner' ? toolCommandText(mode.runner, PACKAGE, version) : CLI);
+
+/**
+ * La versión del guard que fija `runner.json`, o null si no tiene entrada.
+ *
+ * @param {string} root
+ * @returns {string | null}
+ */
+export const pinnedVersion = (root) => readConfig(root)?.tools[PACKAGE] ?? null;
 
 /**
  * El modo, sin preguntar ni crear nada: para `doctor` y `uninstall`.
@@ -74,7 +93,7 @@ export const resolveMode = async (root, { ask }) => {
  * @returns {Record<string, string>} contenido final de cada archivo ('' si no existe).
  */
 export const inTemp = (root, files, run) => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-guard-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'repo-guard-copy-'));
   try {
     for (const file of files) {
       const source = path.join(root, file);

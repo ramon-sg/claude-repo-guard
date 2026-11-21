@@ -24,10 +24,10 @@ const removeEmptyParents = (file, root) => {
  * Muestra los cambios, pide confirmación y los escribe.
  *
  * @param {import('../plan.mjs').Change[]} changes
- * @param {{ root: string, dryRun: boolean, yes: boolean, command: 'apply' | 'uninstall', t: import('../texts/index.mjs').Texts }} options
+ * @param {{ root: string, dryRun: boolean, yes: boolean, command: 'apply' | 'uninstall', t: import('../texts/index.mjs').Texts, cli?: string }} options
  * @returns {Promise<number>} código de salida.
  */
-export const applyChanges = async (changes, { root, dryRun, yes, command, t }) => {
+export const applyChanges = async (changes, { root, dryRun, yes, command, t, cli = CLI }) => {
   if (changes.length === 0) {
     show({ mood: 'ok', title: t.changes.upToDate });
     return 0;
@@ -43,7 +43,7 @@ export const applyChanges = async (changes, { root, dryRun, yes, command, t }) =
     for (const line of lineDiff(change.before, change.after)) process.stdout.write(`  ${line}\n`);
   }
 
-  const withYes = { label: t.changes.dryRunNext, command: `${CLI} ${command} --yes` };
+  const withYes = { label: t.changes.dryRunNext, command: `${cli} ${command} --yes` };
   if (dryRun) {
     show({ mood: 'ok', title: t.changes.dryRun, next: withYes });
     return 0;

@@ -218,7 +218,10 @@ test('install ya no existe: falla sin escribir y dice que ahora es apply', async
   assert.ok(!exists('.claude/repo-guard.manifest.json'));
 });
 
-test('el documento y doctor dicen apply, no install', async () => {
+test('el documento y doctor dicen apply, no install (modo viejo)', async () => {
+  await run('apply', '--yes');
+  // Sin runner.json y con manifiesto: el modo de antes de npm.
+  fs.rmSync(path.join(root, '.agents'), { recursive: true });
   await run('apply', '--yes');
   assert.match(doc(), /claude-repo-guard apply`/);
   assert.doesNotMatch(doc(), /claude-repo-guard install/);
