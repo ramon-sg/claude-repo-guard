@@ -73,7 +73,7 @@ export const FORBIDDEN_SANDBOX_KEYS = ['failIfUnavailable'];
 /**
  * @param {import('./config.mjs').Config} config
  * @param {import('./package-manager.mjs').PackageManager | null} packageManager
- * @param {'bun' | 'node'} [runner] el de `.agents/runner.json`: con bun, `bunx` baja las herramientas a la caché de bun.
+ * @param {'bun' | 'node'} [runner] el de `.agents/runner.json`: con bun, `bun x` baja las herramientas a la caché de bun.
  * @returns {Record<string, unknown>} lo que se fusiona en `.claude/settings.json`.
  */
 export const settingsFragment = (config, packageManager, runner) => {

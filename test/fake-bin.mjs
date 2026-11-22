@@ -6,7 +6,7 @@ import path from 'node:path';
 export const FAKE_VERSIONS = { bun: '1.4.4', npm: '11.6.0' };
 
 /**
- * Un directorio con `bun`/`bunx` y `npm`/`npx` falsos que solo responden
+ * Un directorio con `bun` y `npm`/`npx` falsos que solo responden
  * `--version`, para elegir el ejecutor sin red y sin depender de la máquina.
  * Se pone adelante de `/usr/bin:/bin` (git y sh siguen ahí).
  *
@@ -20,7 +20,7 @@ export const fakeBin = ({ bun = false, npm = false }) => {
     fs.writeFileSync(file, `#!/bin/sh\necho ${version}\n`);
     fs.chmodSync(file, 0o755);
   };
-  if (bun) for (const name of ['bun', 'bunx']) write(name, FAKE_VERSIONS.bun);
+  if (bun) write('bun', FAKE_VERSIONS.bun);
   if (npm) for (const name of ['npm', 'npx']) write(name, FAKE_VERSIONS.npm);
   return { dir, path: `${dir}:/usr/bin:/bin` };
 };

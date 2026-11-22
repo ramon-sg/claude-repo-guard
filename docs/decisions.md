@@ -4,7 +4,7 @@ Por qué claude-repo-guard hace lo que hace. Una entrada por decisión: qué se 
 
 ## En npm y en `.agents/runner.json`, sin crear el archivo en repos del modo viejo (#23)
 
-**Qué:** desde la v0.8.0 el guard se publica en npm como `@ramon-sg/claude-repo-guard`, empaquetado con `@ramon-sg/runner` adentro, y anota su versión en `.agents/runner.json`. Con ese archivo, los atajos se escriben con `writeScripts` (que crea `package.json` si falta) y los mensajes muestran `bunx --bun …@<versión>` o `npx --yes …@<versión>`. Sin el archivo pero con el manifiesto de una instalación anterior, el repo queda en el modo de antes. Sin ninguno de los dos, es una instalación nueva y el guard crea `runner.json`.
+**Qué:** desde la v0.8.0 el guard se publica en npm como `@ramon-sg/claude-repo-guard`, empaquetado con `@ramon-sg/runner` adentro, y anota su versión en `.agents/runner.json`. Con ese archivo, los atajos se escriben con `writeScripts` (que crea `package.json` si falta) y los mensajes muestran `bun x --bun …@<versión>` o `npx --yes …@<versión>`. Sin el archivo pero con el manifiesto de una instalación anterior, el repo queda en el modo de antes. Sin ninguno de los dos, es una instalación nueva y el guard crea `runner.json`.
 
 **Por qué:** agent-kitchen decide el modo de un repo por la existencia de `runner.json` y migra todas las herramientas juntas. Si el guard lo creara en un repo del modo viejo, el repo quedaría a medio migrar: `runner.json` con el guard y las demás herramientas en `devDependencies`.
 
