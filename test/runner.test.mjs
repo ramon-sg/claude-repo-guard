@@ -147,7 +147,7 @@ test('modo runner: un script ajeno con el mismo nombre falla y no escribe nada',
 test('modo runner con bun abre la caché de bun aunque el repo no tenga bun.lock', async () => {
   await run('apply', '--yes');
   assert.ok(json('.claude/settings.json').sandbox.filesystem.allowWrite.includes(BUN_CACHE));
-  assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta para que `bun install` y `bunx` funcionen/);
+  assert.match(doc(), /La caché de bun \(`~\/.bun\/install\/cache`\) está abierta para que `bun install` y `bun x` funcionen/);
   assert.equal(await run('doctor', '--repo'), 0, output);
 });
 
@@ -222,12 +222,35 @@ test('uninstall no borra un package.json que creó el guard si después se le ag
   assert.equal(pkg.scripts, undefined);
 });
 
-test('modo runner bun: el documento y el --dry-run dicen bunx --bun con la versión', async () => {
+test('modo runner bun: el documento y el --dry-run dicen bun x --bun con la versión', async () => {
   await run('apply', '--dry-run');
-  assert.match(output, new RegExp(`bunx --bun ${PKG}@${version()} apply --yes`));
+  assert.match(output, new RegExp(`bun x --bun ${PKG}@${version()} apply --yes`));
   await run('apply', '--yes');
-  assert.ok(doc().includes(`bunx --bun ${PKG}@${version()} apply`));
+  assert.ok(doc().includes(`bun x --bun ${PKG}@${version()} apply`));
+  assert.doesNotMatch(doc(), /bunx/);
   assert.doesNotMatch(doc(), /github:/);
+});
+
+test('doctor marca un documento viejo con bunx y apply lo reescribe con bun x', async () => {
+  await run('apply', '--yes');
+  const current = doc();
+  write('docs/development/claude-repo-guard.md', current.replaceAll('bun x', 'bunx'));
+  output = '';
+  assert.equal(await run('doctor', '--repo', '--json'), 1);
+  assert.ok(JSON.parse(output).some((item) => !item.ok), output);
+  assert.equal(await run('apply', '--yes'), 0);
+  assert.equal(doc(), current);
+  assert.doesNotMatch(doc(), /bunx/);
+  output = '';
+  assert.equal(await run('doctor', '--repo'), 0, output);
+});
+
+test('el ejecutor bun se detecta por el ejecutable bun, sin bunx', async () => {
+  // fake-bin solo trae `bun`: runner 1.0.1 ya no busca `bunx`.
+  assert.equal(await run('apply', '--yes'), 0);
+  assert.equal(json(RUNNER_FILE).runner, 'bun');
+  output = '';
+  assert.equal(await run('doctor', '--repo'), 0, output);
 });
 
 test('modo runner node: el documento dice npx --yes con la versión', async () => {
@@ -251,7 +274,7 @@ test('doctor en modo runner marca la entrada de runner.json distinta de la que c
   const check = JSON.parse(output).find((item) => item.name === es.doctor.names.version);
   assert.equal(check.ok, false);
   assert.ok(check.detail.includes('0.0.1'), check.detail);
-  assert.ok(check.detail.includes(`bunx --bun ${PKG}@${version()} apply`), check.detail);
+  assert.ok(check.detail.includes(`bun x --bun ${PKG}@${version()} apply`), check.detail);
 });
 
 test('doctor en modo runner marca el ejecutor que falta', async () => {

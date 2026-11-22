@@ -15,14 +15,14 @@ Barandas para correr Claude Code sin preguntas de permisos, instaladas **en cada
 Dentro del repo, con Bun:
 
 ```bash
-bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply --dry-run   # muestra los cambios
-bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply             # los aplica (pregunta antes)
-bunx --bun @ramon-sg/claude-repo-guard@0.8.0 doctor            # revisa que todo coincida
-bunx --bun @ramon-sg/claude-repo-guard@0.8.0 uninstall         # deja el repo como estaba
-bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply --lang en   # la terminal en inglés (o CLAUDE_REPO_GUARD_LANG=en)
+bun x --bun @ramon-sg/claude-repo-guard@0.8.1 apply --dry-run   # muestra los cambios
+bun x --bun @ramon-sg/claude-repo-guard@0.8.1 apply             # los aplica (pregunta antes)
+bun x --bun @ramon-sg/claude-repo-guard@0.8.1 doctor            # revisa que todo coincida
+bun x --bun @ramon-sg/claude-repo-guard@0.8.1 uninstall         # deja el repo como estaba
+bun x --bun @ramon-sg/claude-repo-guard@0.8.1 apply --lang en   # la terminal en inglés (o CLAUDE_REPO_GUARD_LANG=en)
 ```
 
-Con Node es lo mismo con `npx --yes @ramon-sg/claude-repo-guard@0.8.0`. El documento que genera `apply` y los mensajes muestran el comando que corresponde al repo (ver [`.agents/runner.json`](#agentsrunnerjson)).
+Con Node es lo mismo con `npx --yes @ramon-sg/claude-repo-guard@0.8.1`. El documento que genera `apply` y los mensajes muestran el comando que corresponde al repo (ver [`.agents/runner.json`](#agentsrunnerjson)).
 
 `apply` es el único comando para instalar, actualizar y aplicar cambios: deja el repo como dicen la versión que corres y `.claude/repo-guard.config.json`. Correrlo dos veces no cambia nada. Para actualizar, córrelo con la versión nueva; no hace falta `uninstall` antes. Hasta la v0.4.1 se llamaba `install`.
 
@@ -57,7 +57,7 @@ claude --settings '{"sandbox":{"enabled":false}}' --dangerously-skip-permissions
 
 ## `.agents/runner.json`
 
-Desde la v0.8.0 el guard se publica en npm y anota su versión en `.agents/runner.json`, el archivo que comparten las herramientas de `@ramon-sg` para saber con qué correr cada una (`bun` → `bunx --bun`, `node` → `npx --yes`) y en qué versión exacta. Lo lee y escribe [`@ramon-sg/runner`](https://www.npmjs.com/package/@ramon-sg/runner), que va empaquetada dentro del guard.
+Desde la v0.8.0 el guard se publica en npm y anota su versión en `.agents/runner.json`, el archivo que comparten las herramientas de `@ramon-sg` para saber con qué correr cada una (`bun` → `bun x --bun`, `node` → `npx --yes`) y en qué versión exacta. Lo lee y escribe [`@ramon-sg/runner`](https://www.npmjs.com/package/@ramon-sg/runner), que va empaquetada dentro del guard.
 
 | El repo tiene | Qué hace `apply` |
 | --- | --- |
@@ -65,9 +65,9 @@ Desde la v0.8.0 el guard se publica en npm y anota su versión en `.agents/runne
 | Solo `.claude/repo-guard.manifest.json` (instalado antes de la v0.8.0) | Sigue en el modo de antes: no crea `runner.json` y los mensajes dicen `npx github:ramon-sg/claude-repo-guard`. Pasar al modo nuevo lo hace agent-kitchen, que migra todas las herramientas juntas |
 | Ninguno de los dos | Crea `runner.json` con `bun` si Bun está instalado. Si no, pregunta si usar Node (sin terminal o con `--yes`, usa Node y avisa) |
 
-Con `runner.json`, los atajos `claude:auto` y `claude:free` van siempre a `package.json`: si no existe, se crea con `private`, `packageManager` (`bun@…` o `npm@…`, según el ejecutor) y los atajos, sin dependencias. Con `bun`, el sandbox abre la caché de Bun (`~/.bun/install/cache`) para que `bunx` funcione. `uninstall` quita la entrada del guard, y borra `runner.json` y `package.json` solo si los creó el guard y no les quedó nada más.
+Con `runner.json`, los atajos `claude:auto` y `claude:free` van siempre a `package.json`: si no existe, se crea con `private`, `packageManager` (`bun@…` o `npm@…`, según el ejecutor) y los atajos, sin dependencias. Con `bun`, el sandbox abre la caché de Bun (`~/.bun/install/cache`) para que `bun x` funcione. `uninstall` quita la entrada del guard, y borra `runner.json` y `package.json` solo si los creó el guard y no les quedó nada más.
 
-El modo de antes sigue funcionando: `npx github:ramon-sg/claude-repo-guard#v0.8.0 apply` arma el paquete al instalarlo desde GitHub.
+El modo de antes sigue funcionando: `npx github:ramon-sg/claude-repo-guard#v0.8.1 apply` arma el paquete al instalarlo desde GitHub.
 
 ## Qué instala
 
@@ -174,8 +174,8 @@ Para habilitarlo:
 3. **Aplica y revisa:**
 
    ```bash
-   bunx --bun @ramon-sg/claude-repo-guard@0.8.0 apply
-   bunx --bun @ramon-sg/claude-repo-guard@0.8.0 doctor
+   bun x --bun @ramon-sg/claude-repo-guard@0.8.1 apply
+   bun x --bun @ramon-sg/claude-repo-guard@0.8.1 doctor
    ```
 
 4. **Abre una sesión nueva de Claude.** El sandbox se arma al iniciar la sesión, así que una sesión abierta sigue con la configuración vieja.

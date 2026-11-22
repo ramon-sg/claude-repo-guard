@@ -1,6 +1,6 @@
 {
   "name": "@ramon-sg/claude-repo-guard",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Barandas de Claude Code instaladas en el repo: sandbox acotado al worktree, modo auto sin preguntas y un alias para saltarlas.",
   "type": "module",
   "bin": {
@@ -31,7 +31,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "@ramon-sg/runner": "1.0.0",
+    "@ramon-sg/runner": "1.0.1",
     "esbuild": "0.28.2"
   }
 }
